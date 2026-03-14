@@ -1,0 +1,260 @@
+:root {
+    /* Base sizes */
+    --font-size-base: 16px;
+    
+    /* Scale */
+    --font-size-sm: 0.875rem;   /* 14px */
+    --font-size-md: 1rem;        /* 16px */
+    --font-size-lg: 1.5rem;      /* 24px */
+    --font-size-xl: 2rem;        /* 32px */
+    --font-size-2xl: 3rem;       /* 48px */
+    --font-size-3xl: 4rem;       /* 64px */
+    --font-size-4xl: 5rem;       /* 80px */
+    --font-size-5xl: 6.25rem;    /* 100px */
+    
+    /* Responsive sizing */
+    --font-size-responsive: clamp(2rem, 8vw, 6.25rem); /* 32px to 100px */
+    --font-size-button: clamp(1.5rem, 5vw, 5rem);     /* 24px to 80px */
+    --font-size-pfp-plus: clamp(2rem, 4vw, 3.125rem); /* 32px to 50px */
+}
+
+/* Apply to your elements */
+.input-line {
+    font-size: var(--font-size-5xl); /* 100px fixed */
+}
+
+.view-toggle {
+    font-size: var(--font-size-responsive); /* Scales with screen */
+}
+
+.upload-pfp-container span {
+    font-size: var(--font-size-pfp-plus); /* Responsive plus sign */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    overflow: hidden;
+}
+
+/* === 1.0 MAIN CONTAINER === */
+.main-container {
+    /* border: 2px solid rgb(255, 255, 255); */
+    width: 100vw;
+    height: 100vh;
+    padding: 2%;
+    background-image: url('../images/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: white;
+}
+
+/* === 2.0 TOP CONTAINER (PFP SECTION) === */
+.main-inner-top-container {
+    /* border: 2px solid rgb(255, 255, 255); */
+    height: 50%;
+    width: 100%;
+}
+
+/* === 3.0 BOTTOM CONTAINER (INPUTS & BUTTONS) === */
+.main-inner-bottom-container {
+    /* border: 2px solid rgb(255, 255, 255); */
+    height: 50%;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+}
+
+/* === 3.1 BOTTOM LEFT (INPUTS) === */
+.main-inner-bottom-left {
+    /* border: 2px solid rgb(255, 255, 255);  */
+    width: 50%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* === 3.2 BOTTOM RIGHT (BUTTONS) === */
+.main-inner-bottom-right {
+    /* border: 2px solid rgb(255, 255, 255); */
+    width: 50%;
+    height: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: clamp(10px, 2vw, 40px); /* Responsive gap: min 10px, scales with viewport, max 40px */
+
+}
+
+
+/* === 4.0 INPUT GROUPS === */
+.input-group {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+/* === 4.1 INPUT LINES === */
+.input-line {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 100px;
+    line-height: 0.1;
+    padding: 0;
+    width: 100%;
+    outline: none;
+    font-family: inherit;
+    height: auto;
+    margin: 0;
+}
+
+.input-line:focus,
+.input-line:active {
+    outline: none;
+    padding: 0;
+    margin: 0;
+}
+
+.input-line:-webkit-autofill,
+.input-line:-webkit-autofill:hover,
+.input-line:-webkit-autofill:focus {
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.5);
+    -webkit-box-shadow: 0 0 0px 1000px transparent inset;
+    transition: background-color 5000s ease-in-out 0s;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+/* === 5.0 VIEW TOGGLE BUTTONS === */
+.view-toggle {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: min(6vw, 90px);
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    border: none;
+    flex: 0 1 auto;
+    padding: 0;
+    line-height: 1;
+    
+    /* Smooth transitions for hover effects only */
+    transition: opacity 0.2s ease, text-shadow 0.2s ease, transform 0.1s ease;
+    opacity: 0.7;
+    text-shadow: 0 0 0px rgba(255, 255, 255, 0);
+}
+
+.view-toggle:hover {
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.view-toggle:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+}
+
+.view-toggle.active {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 5px;
+    text-decoration-color: rgba(255, 255, 255, 0.5);
+    opacity: 1;
+    color: rgba(255, 255, 255, 1);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+}
+
+/* === 6.0 PFP SELECTION SECTION === */
+.pfp-selection-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+/* === 6.1 PFP GRID === */
+.pfp-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 0;
+    width: 100%;
+    height: min-content;
+    margin: 0;
+    padding: 0;
+}
+
+/* === 6.2 PFP CONTAINERS === */
+.pfp-container {
+    aspect-ratio: 1/1;
+    width: 100%;
+    cursor: pointer;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+    transition: outline 0.2s ease;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.pfp-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.pfp-container.selected {
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+/* === 6.3 UPLOAD PFP CONTAINER === */
+.upload-pfp-container {
+    aspect-ratio: 1/1;
+    width: 100%;
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+    outline-offset: -2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 50px;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.upload-pfp-container.selected {
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.upload-pfp-container span {
+    font-size: 50px;
+    line-height: 1;
+    display: block;
+}
+
+/* === 7.0 UTILITY CLASSES === */
+/* Remove spinner from number inputs */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+

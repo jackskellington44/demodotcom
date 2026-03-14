@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="main-container" id="mainContainer">
+        
+        <!-- Top Container (PFP section) -->
+        <div class="main-inner-top-container" id="topContainer">
+            <div class="pfp-selection-container" id="pfpSelection" style="display: none;">
+                <div class="pfp-grid" id="pfpGrid">
+                    <!-- PFPs will be loaded dynamically from config -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Container -->
+        <div class="main-inner-bottom-container">
+            <!-- Left side - Inputs -->
+            <div class="main-inner-bottom-left" id="inputContainer">
+                <!-- Login inputs -->
+                <div class="input-group" id="loginInputs">
+                    <input type="text" class="input-line" id="loginUsername" placeholder="username" autocomplete="off">
+                    <input type="password" class="input-line" id="loginPassword" placeholder="password" autocomplete="off">
+                </div>
+                
+                <!-- Signup inputs -->
+                <div class="input-group" id="signupInputs" style="display: none;">
+                    <input type="text" class="input-line" id="signupUsername" placeholder="choose username" autocomplete="off">
+                    <input type="password" class="input-line" id="signupPassword" placeholder="choose password" autocomplete="off">
+                </div>
+            </div>
+
+            <!-- Right side - Toggle buttons -->
+            <div class="main-inner-bottom-right">
+                <button class="view-toggle active" id="loginToggle">login</button>
+                <button class="view-toggle" id="signupToggle">signup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload input (hidden) -->
+    <input type="file" id="pfpUpload" accept="image/*" style="display: none;">
+
+    <!-- ONLY ONE SCRIPT TAG, TYPE MODULE -->
+    <script type="module" src="/shared/js/main.js"></script>
+</body>
+</html>
