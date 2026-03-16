@@ -34,7 +34,13 @@ const coverImageSkipBtn = document.getElementById('coverImageSkipBtn');
 
 let currentUser = null;
 let currentUserData = null;
-let pendingPost = null; // Holds post data while waiting for cover image decision
+let pendingPost = null;
+let editMode = false;
+let editingPostId = null; // When editing an existing post
+
+// Double right-click detection
+let lastRightClick = 0;
+const DOUBLE_CLICK_THRESHOLD = 400; // ms
 
 // ============================================
 // 1. AUTH CHECK
@@ -84,14 +90,34 @@ function isVisualFile(file) {
 }
 
 // ============================================
-// 3. RIGHT-CLICK TO OPEN POST FORM
+// 3. RIGHT-CLICK HANDLING
 // ============================================
 
 function initializePostForm() {
-    // Right-click opens form
+    // Right-click: single = post form, double = toggle edit mode
     mainPageContainer.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        openPostForm();
+
+        const now = Date.now();
+        const timeSince = now - lastRightClick;
+        lastRightClick = now;
+
+        if (timeSince < DOUBLE_CLICK_THRESHOLD) {
+            // Double right-click: toggle edit mode
+            lastRightClick = 0; // Reset so third click doesn't re-trigger
+            closePostForm();
+            toggleEditMode();
+            return;
+        }
+
+        // Single right-click: open post form (only if not in edit mode)
+        // Use a small delay to make sure it's not the first click of a double
+        setTimeout(() => {
+            // If lastRightClick hasn't been reset (meaning no second click came)
+            if (lastRightClick === now && !editMode) {
+                openPostForm();
+            }
+        }, DOUBLE_CLICK_THRESHOLD);
     });
 
     // Cancel button closes form
@@ -120,7 +146,7 @@ function initializePostForm() {
         handlePostSubmit();
     });
 
-    // Category toggle - swap between dropdown and text input
+    // Category toggle
     addCategoryToggle.addEventListener('click', () => {
         if (postCategory.style.display !== 'none') {
             postCategory.style.display = 'none';
@@ -161,6 +187,19 @@ function initializePostForm() {
         handleCoverImageSkip();
     });
 
+    // Escape key exits edit mode
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (editMode) {
+                toggleEditMode();
+            } else if (postFormOverlay.style.display === 'flex') {
+                closePostForm();
+            } else if (coverImageOverlay.style.display === 'flex') {
+                closeCoverImagePrompt();
+            }
+        }
+    });
+
     console.log('Post form initialized');
 }
 
@@ -179,6 +218,7 @@ function closePostForm() {
     postCategoryInput.style.display = 'none';
     postCategoryInput.value = '';
     addCategoryToggle.textContent = '+';
+    editingPostId = null;
 }
 
 function closeCoverImagePrompt() {
@@ -189,7 +229,61 @@ function closeCoverImagePrompt() {
 }
 
 // ============================================
-// 4. CATEGORIES
+// 4. EDIT MODE
+// ============================================
+
+function toggleEditMode() {
+    editMode = !editMode;
+    console.log('Edit mode:', editMode ? 'ON' : 'OFF');
+
+    if (editMode) {
+        mainPageContainer.classList.add('edit-mode');
+    } else {
+        mainPageContainer.classList.remove('edit-mode');
+    }
+
+    loadPosts();
+}
+
+function openEditForm(post) {
+    editingPostId = post.id;
+
+    // Pre-fill the form
+    postTitle.value = post.title || '';
+    postText.value = post.body || '';
+    postCategory.value = post.category || '';
+
+    // Show existing file name if there was one
+    if (post.file_name) {
+        postFileName.textContent = post.file_name;
+    } else {
+        postFileName.textContent = 'choose file';
+    }
+
+    openPostForm();
+}
+
+async function handleDeletePost(postId) {
+    try {
+        const { error } = await supabase
+            .from('posts')
+            .delete()
+            .eq('id', postId)
+            .eq('user_id', currentUser.id); // Safety: only delete your own
+
+        if (error) throw error;
+
+        console.log('Post deleted:', postId);
+        await loadPosts();
+
+    } catch (error) {
+        console.error('Delete failed:', error.message);
+        alert(`Delete failed: ${error.message}`);
+    }
+}
+
+// ============================================
+// 5. CATEGORIES
 // ============================================
 
 async function loadCategories() {
@@ -243,7 +337,7 @@ async function handleAddCategory() {
 }
 
 // ============================================
-// 5. POST SUBMISSION
+// 6. POST SUBMISSION
 // ============================================
 
 async function handlePostSubmit() {
@@ -282,19 +376,48 @@ async function handlePostSubmit() {
             console.log('File uploaded:', fileURL);
         }
 
-        // Build the post record
+        // Build the post record (only include fields that changed)
         const postRecord = {
-            user_id: currentUser.id,
             title: title || null,
             body: body || null,
-            category: category,
-            file_url: fileURL,
-            file_name: fileName,
-            file_type: fileType,
-            group_id: 'group1'
+            category: category
         };
 
-        // If file is non-visual, show cover image prompt before saving
+        // Only update file fields if a new file was uploaded
+        if (file) {
+            postRecord.file_url = fileURL;
+            postRecord.file_name = fileName;
+            postRecord.file_type = fileType;
+        }
+
+        // EDITING an existing post
+        if (editingPostId) {
+            // Non-visual file with new upload: show cover image prompt
+            if (file && !isVisualFile(file)) {
+                pendingPost = { ...postRecord, _isEdit: true, _editId: editingPostId };
+                closePostForm();
+                coverImageOverlay.style.display = 'flex';
+                return;
+            }
+
+            await updatePost(editingPostId, postRecord);
+            closePostForm();
+            await loadPosts();
+            return;
+        }
+
+        // CREATING a new post
+        postRecord.user_id = currentUser.id;
+        postRecord.group_id = 'group1';
+
+        // If no new file was chosen, set file fields to null explicitly
+        if (!file) {
+            postRecord.file_url = null;
+            postRecord.file_name = null;
+            postRecord.file_type = null;
+        }
+
+        // Non-visual file: show cover image prompt
         if (file && !isVisualFile(file)) {
             pendingPost = postRecord;
             closePostForm();
@@ -302,7 +425,6 @@ async function handlePostSubmit() {
             return;
         }
 
-        // Otherwise save directly
         await savePost(postRecord);
         closePostForm();
         await loadPosts();
@@ -314,7 +436,7 @@ async function handlePostSubmit() {
 }
 
 // ============================================
-// 6. COVER IMAGE PROMPT
+// 7. COVER IMAGE PROMPT
 // ============================================
 
 async function handleCoverImageSubmit() {
@@ -327,7 +449,6 @@ async function handleCoverImageSubmit() {
     }
 
     try {
-        // Upload cover image
         const filePath = `${currentUser.id}/covers/${Date.now()}-${coverFile.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('group1-posts')
@@ -342,8 +463,15 @@ async function handleCoverImageSubmit() {
         pendingPost.cover_image_url = urlData.publicUrl;
         console.log('Cover image uploaded:', pendingPost.cover_image_url);
 
-        // Save the post with cover image
-        await savePost(pendingPost);
+        if (pendingPost._isEdit) {
+            const editId = pendingPost._editId;
+            delete pendingPost._isEdit;
+            delete pendingPost._editId;
+            await updatePost(editId, pendingPost);
+        } else {
+            await savePost(pendingPost);
+        }
+
         closeCoverImagePrompt();
         await loadPosts();
 
@@ -357,8 +485,15 @@ async function handleCoverImageSkip() {
     if (!pendingPost) return;
 
     try {
-        // Save post without cover image
-        await savePost(pendingPost);
+        if (pendingPost._isEdit) {
+            const editId = pendingPost._editId;
+            delete pendingPost._isEdit;
+            delete pendingPost._editId;
+            await updatePost(editId, pendingPost);
+        } else {
+            await savePost(pendingPost);
+        }
+
         closeCoverImagePrompt();
         await loadPosts();
 
@@ -369,7 +504,7 @@ async function handleCoverImageSkip() {
 }
 
 // ============================================
-// 7. SAVE POST TO DATABASE
+// 8. SAVE / UPDATE POST
 // ============================================
 
 async function savePost(postRecord) {
@@ -384,16 +519,37 @@ async function savePost(postRecord) {
     return data[0];
 }
 
+async function updatePost(postId, updates) {
+    const { data, error } = await supabase
+        .from('posts')
+        .update(updates)
+        .eq('id', postId)
+        .eq('user_id', currentUser.id) // Safety: only edit your own
+        .select();
+
+    if (error) throw error;
+
+    console.log('Post updated:', data[0].id);
+    return data[0];
+}
+
 // ============================================
-// 8. LOAD AND RENDER POSTS
+// 9. LOAD AND RENDER POSTS
 // ============================================
 
 async function loadPosts() {
-    const { data: posts, error } = await supabase
+    let query = supabase
         .from('posts')
         .select('*')
         .eq('group_id', 'group1')
         .order('created_at', { ascending: false });
+
+    // In edit mode, only show current user's posts
+    if (editMode) {
+        query = query.eq('user_id', currentUser.id);
+    }
+
+    const { data: posts, error } = await query;
 
     if (error) {
         console.error('Failed to load posts:', error);
@@ -401,14 +557,19 @@ async function loadPosts() {
     }
 
     const userIds = [...new Set(posts.map(p => p.user_id))];
-    const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('id, username, pfp, pfp_url')
-        .in('id', userIds);
 
-    if (usersError) {
-        console.error('Failed to load users:', usersError);
-        return;
+    let users = [];
+    if (userIds.length > 0) {
+        const { data, error: usersError } = await supabase
+            .from('users')
+            .select('id, username, pfp, pfp_url')
+            .in('id', userIds);
+
+        if (usersError) {
+            console.error('Failed to load users:', usersError);
+            return;
+        }
+        users = data;
     }
 
     const userMap = {};
@@ -426,7 +587,7 @@ async function loadPosts() {
 }
 
 // ============================================
-// 9. POST CARD BUILDER
+// 10. POST CARD BUILDER
 // ============================================
 
 function buildPostCard(post, user) {
@@ -436,14 +597,12 @@ function buildPostCard(post, user) {
     const hasTitle = post.title && post.title.trim();
     const hasText = post.body && post.body.trim();
 
-    // A post has a visual if it's an image, a video, OR a non-visual file with a cover image
     const hasVisual = post.file_url && (
         post.file_type === 'image' ||
         post.file_type === 'video' ||
         post.cover_image_url
     );
 
-    // Determine which image to show
     let visualSrc = null;
     if (post.file_type === 'image') {
         visualSrc = post.file_url;
@@ -455,7 +614,6 @@ function buildPostCard(post, user) {
     const content = document.createElement('div');
     content.className = 'post-card-content';
 
-    // Title + visual + text side by side
     if (hasTitle && hasVisual && hasText) {
         content.classList.add('post-layout-title-visual-text');
         content.innerHTML = `
@@ -466,7 +624,6 @@ function buildPostCard(post, user) {
             </div>
         `;
     }
-    // Title + visual
     else if (hasTitle && hasVisual) {
         content.classList.add('post-layout-title-visual');
         content.innerHTML = `
@@ -474,7 +631,6 @@ function buildPostCard(post, user) {
             <img class="post-image" src="${visualSrc}" alt="">
         `;
     }
-    // Title + text
     else if (hasTitle && hasText) {
         content.classList.add('post-layout-title-text');
         content.innerHTML = `
@@ -482,21 +638,18 @@ function buildPostCard(post, user) {
             <div class="post-body">${post.body}</div>
         `;
     }
-    // Visual only
     else if (hasVisual) {
         content.classList.add('post-layout-visual');
         content.innerHTML = `
             <img class="post-image" src="${visualSrc}" alt="">
         `;
     }
-    // Title only
     else if (hasTitle) {
         content.classList.add('post-layout-title');
         content.innerHTML = `
             <div class="post-title">${post.title}</div>
         `;
     }
-    // Text only
     else if (hasText) {
         content.classList.add('post-layout-text');
         content.innerHTML = `
@@ -511,12 +664,36 @@ function buildPostCard(post, user) {
     footer.className = 'post-footer';
 
     const pfpSrc = user.pfp_url || `./images/pfps/${user.pfp}`;
-    footer.innerHTML = `
-        <img class="post-footer-pfp" src="${pfpSrc}" alt="">
-        <span class="post-footer-username">${user.username || 'unknown'}</span>
-        ${post.file_name ? `<span class="post-footer-filename">${post.file_name}</span>` : ''}
-        <span class="post-footer-category">${post.category || 'none'}</span>
-    `;
+
+    if (editMode) {
+        // Edit mode footer: pfp, edit, delete, filename, category
+        footer.innerHTML = `
+            <img class="post-footer-pfp" src="${pfpSrc}" alt="">
+            <span class="post-footer-action post-footer-edit">edit</span>
+            <span class="post-footer-action post-footer-delete">delete</span>
+            ${post.file_name ? `<span class="post-footer-filename">${post.file_name}</span>` : ''}
+            <span class="post-footer-category">${post.category || 'none'}</span>
+        `;
+
+        // Wire up edit button
+        footer.querySelector('.post-footer-edit').addEventListener('click', () => {
+            openEditForm(post);
+        });
+
+        // Wire up delete button
+        footer.querySelector('.post-footer-delete').addEventListener('click', () => {
+            handleDeletePost(post.id);
+        });
+
+    } else {
+        // Normal footer: pfp, username, filename, category
+        footer.innerHTML = `
+            <img class="post-footer-pfp" src="${pfpSrc}" alt="">
+            <span class="post-footer-username">${user.username || 'unknown'}</span>
+            ${post.file_name ? `<span class="post-footer-filename">${post.file_name}</span>` : ''}
+            <span class="post-footer-category">${post.category || 'none'}</span>
+        `;
+    }
 
     card.appendChild(footer);
 
@@ -524,7 +701,7 @@ function buildPostCard(post, user) {
 }
 
 // ============================================
-// 10. INITIALIZATION
+// 11. INITIALIZATION
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {

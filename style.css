@@ -682,3 +682,30 @@ input[type=number]::-webkit-outer-spin-button {
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
     color: rgba(255, 255, 255, 0.9);
 }
+
+/* ============================================ */
+/* 13.0 EDIT MODE                              */
+/* ============================================ */
+
+/* Edit mode indicator - subtle border so you know you're in edit mode */
+.main-page-container.edit-mode {
+    outline: 2px solid rgba(255, 255, 255, 0.15);
+    outline-offset: -2px;
+}
+
+/* === 13.1 EDIT/DELETE FOOTER ACTIONS === */
+.post-footer-action {
+    font-size: var(--post-footer-size);
+    color: rgba(255, 255, 255, 0.5);
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.post-footer-action:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.post-footer-delete:hover {
+    color: rgba(255, 100, 100, 0.9);
+}
