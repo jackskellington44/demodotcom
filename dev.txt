@@ -51,20 +51,26 @@
 - Supabase auth: login + signup -- WORKING
 - Supabase storage: custom PFP upload -- WORKING
 - Supabase database: user record saving -- WORKING
-- Main page (post feed): NOT STARTED
-- Post submission (right-click form): NOT STARTED
-- Redirect after login/signup: NOT STARTED
+- Main page (post feed): WORKING
+- Post submission (right-click form): WORKING (title + image only)
+- Redirect after login/signup: WORKING
+- Post card rendering (6 variants): WORKING
+- Post footer (pfp, username, filename, category): WORKING
 
 ## BUILD ORDER
 1. [x] Landing page login/signup
-2. [ ] Create main.html (post feed page)
-3. [ ] Wire redirect from landing to main after login/signup
-4. [ ] Right-click post form overlay on main page
-5. [ ] Save posts to Supabase (posts table + storage bucket)
-6. [ ] Load and display posts on main page
-7. [ ] Test full flow end to end
-8. [ ] Bulk up features
-9. [ ] Refactor into multi-site structure, make 7 copies
+2. [x] Create main.html (post feed page)
+3. [x] Wire redirect from landing to main after login/signup
+4. [x] Right-click post form overlay on main page
+5. [x] Save posts to Supabase (posts table + storage bucket)
+6. [x] Load and display posts on main page
+7. [x] Test full flow end to end
+8. [ ] Wire up remaining form inputs (text body, category dropdown)
+9. [ ] Non-visual file uploads + cover image prompt
+10. [ ] Mouse-drag post placement with x/y coordinates
+11. [ ] Smart padding between posts
+12. [ ] Bulk up features
+13. [ ] Refactor into multi-site structure, make 7 copies
 
 ## SITE-SPECIFIC VARIABLES (track for 7-site split later)
 - background image: ./images/background.jpg

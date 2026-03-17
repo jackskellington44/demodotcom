@@ -16,16 +16,21 @@
         </div>
 
         <!-- Post form overlay (hidden by default, opens on right-click) -->
+                <!-- Post form overlay (hidden by default, opens on right-click) -->
         <div class="post-form-overlay" id="postFormOverlay" style="display: none;">
             <div class="post-form" id="postForm">
 
                 <!-- Title input -->
                 <input type="text" class="post-form-title" id="postTitle" placeholder="title" maxlength="75" autocomplete="off">
 
-                <!-- Category dropdown (wired up later) -->
-                <select class="post-form-category" id="postCategory" disabled>
-                    <option value="">category (coming soon)</option>
-                </select>
+                <!-- Category dropdown + add new -->
+                <div class="post-form-category-row">
+                    <select class="post-form-category" id="postCategory">
+                        <option value="">none</option>
+                    </select>
+                    <input type="text" class="post-form-category-input" id="postCategoryInput" placeholder="type category, press enter" autocomplete="off" style="display: none;">
+                    <div class="post-form-add-category" id="addCategoryToggle">+</div>
+                </div>
 
                 <!-- File upload -->
                 <label class="post-form-file-label" id="postFileLabel">
@@ -33,8 +38,8 @@
                     <input type="file" id="postFileInput" accept="image/*">
                 </label>
 
-                <!-- Text input (wired up later) -->
-                <textarea class="post-form-text" id="postText" placeholder="text (coming soon)" disabled></textarea>
+                <!-- Text input -->
+                <textarea class="post-form-text" id="postText" placeholder="text"></textarea>
 
                 <!-- Buttons -->
                 <div class="post-form-buttons">

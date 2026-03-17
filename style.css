@@ -479,3 +479,77 @@ input[type=number]::-webkit-outer-spin-button {
     font-size: var(--font-size-sm);
     color: rgba(255, 255, 255, 0.4);
 }
+
+/* === 10.2 POST FORM CATEGORY ROW === */
+.post-form-category-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+}
+
+.post-form-category-row .post-form-category {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: var(--font-size-md);
+    font-family: inherit;
+    outline: none;
+    padding: 5px 0;
+    cursor: pointer;
+}
+
+.post-form-category option {
+    background: #222;
+    color: white;
+}
+
+.post-form-add-category {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.post-form-add-category:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* === 10.3 POST FORM NEW CATEGORY === */
+/* === 10.3 POST FORM CATEGORY INPUT (inline add) === */
+.post-form-category-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: var(--font-size-md);
+    font-family: inherit;
+    outline: none;
+    padding: 5px 0;
+}
+
+.post-form-category-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* === 10.4 POST FORM TEXT (enabled) === */
+.post-form-text {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.8);
+    font-size: var(--font-size-md);
+    font-family: inherit;
+    outline: none;
+    resize: none;
+    height: 80px;
+    padding: 5px 0;
+}
+
+.post-form-text::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}

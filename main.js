@@ -18,6 +18,8 @@ const postFileName = document.getElementById('postFileName');
 const postText = document.getElementById('postText');
 const postSubmitBtn = document.getElementById('postSubmitBtn');
 const postCancelBtn = document.getElementById('postCancelBtn');
+const addCategoryToggle = document.getElementById('addCategoryToggle');
+const postCategoryInput = document.getElementById('postCategoryInput');
 
 // ============================================
 // STATE VARIABLES
@@ -95,6 +97,32 @@ function initializePostForm() {
         handlePostSubmit();
     });
 
+        // Add category toggle - swap between dropdown and text input
+    addCategoryToggle.addEventListener('click', () => {
+        if (postCategory.style.display !== 'none') {
+            // Switch to text input mode
+            postCategory.style.display = 'none';
+            postCategoryInput.style.display = 'block';
+            postCategoryInput.value = '';
+            postCategoryInput.focus();
+            addCategoryToggle.textContent = '×';
+        } else {
+            // Switch back to dropdown
+            postCategory.style.display = 'block';
+            postCategoryInput.style.display = 'none';
+            postCategoryInput.value = '';
+            addCategoryToggle.textContent = '+';
+        }
+    });
+
+    // Enter key in category input adds the category
+    postCategoryInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddCategory();
+        }
+    });
+
     console.log('Post form initialized');
 }
 
@@ -109,19 +137,87 @@ function closePostForm() {
     postFileName.textContent = 'choose file';
     postText.value = '';
     postCategory.value = '';
+    postCategory.style.display = 'block';
+    postCategoryInput.style.display = 'none';
+    postCategoryInput.value = '';
+    addCategoryToggle.textContent = '+';
 }
 
 // ============================================
-// 3. POST SUBMISSION
+// 3. CATEGORIES
+// ============================================
+
+async function loadCategories() {
+    const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('group_id', 'group1')
+        .order('name', { ascending: true });
+
+    if (error) {
+        console.error('Failed to load categories:', error);
+        return;
+    }
+
+    // Clear existing options except "none"
+    postCategory.innerHTML = '<option value="">none</option>';
+
+    data.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat.name;
+        option.textContent = cat.name;
+        postCategory.appendChild(option);
+    });
+
+    console.log(`Loaded ${data.length} categories`);
+}
+
+async function handleAddCategory() {
+    const name = postCategoryInput.value.trim();
+
+    if (!name) return;
+
+    try {
+        const { data, error } = await supabase
+            .from('categories')
+            .insert([{ name: name, group_id: 'group1' }])
+            .select();
+
+        if (error) {
+            console.error('Add category error:', error);
+            throw error;
+        }
+
+        console.log('Category added:', name);
+
+        // Reload categories and select the new one
+        await loadCategories();
+        postCategory.value = name;
+
+        // Switch back to dropdown mode
+        postCategory.style.display = 'block';
+        postCategoryInput.style.display = 'none';
+        postCategoryInput.value = '';
+        addCategoryToggle.textContent = '+';
+
+    } catch (error) {
+        alert(`Failed to add category: ${error.message}`);
+    }
+}
+
+// ============================================
+// 4. POST SUBMISSION
 // ============================================
 
 async function handlePostSubmit() {
     const title = postTitle.value.trim();
+    const body = postText.value.trim();
+    const category = postCategory.value || null;
     const file = postFileInput.files[0] || null;
 
     // Must have at least one thing
-    if (!title && !file) {
-        alert('Add a title or choose a file');
+    if (!title && !file && !body) {
+        alert('Add a title, text, or choose a file');
         return;
     }
 
@@ -159,6 +255,8 @@ async function handlePostSubmit() {
             .insert([{
                 user_id: currentUser.id,
                 title: title || null,
+                body: body || null,
+                category: category,
                 file_url: fileURL,
                 file_name: fileName,
                 file_type: fileType,
@@ -184,7 +282,7 @@ async function handlePostSubmit() {
 }
 
 // ============================================
-// 4. LOAD AND RENDER POSTS
+// 5. LOAD AND RENDER POSTS
 // ============================================
 
 async function loadPosts() {
@@ -228,7 +326,7 @@ async function loadPosts() {
 }
 
 // ============================================
-// 5. POST CARD BUILDER
+// 6. POST CARD BUILDER
 // ============================================
 
 function buildPostCard(post, user) {
@@ -314,7 +412,7 @@ function buildPostCard(post, user) {
 }
 
 // ============================================
-// 6. INITIALIZATION
+// 7. INITIALIZATION
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -324,6 +422,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!session) return;
 
     initializePostForm();
+    await loadCategories();
     await loadPosts();
 
     console.log('Main page ready');
