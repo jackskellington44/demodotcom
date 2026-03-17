@@ -610,3 +610,75 @@ input[type=number]::-webkit-outer-spin-button {
     font-family: inherit;
     margin-left: auto;
 }
+
+/* ============================================ */
+/* 12.0 COVER IMAGE PROMPT                     */
+/* ============================================ */
+
+.cover-image-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.cover-image-prompt {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: stretch;
+    width: 400px;
+}
+
+.cover-image-prompt-text {
+    font-size: var(--font-size-lg);
+    color: rgba(255, 255, 255, 0.8);
+    font-family: inherit;
+}
+
+.cover-image-file-label {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.5);
+    font-size: var(--font-size-md);
+    font-family: inherit;
+    cursor: pointer;
+    padding: 5px 0;
+}
+
+.cover-image-file-label:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.cover-image-file-label input[type="file"] {
+    display: none;
+}
+
+.cover-image-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-end;
+}
+
+.cover-image-buttons button {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: var(--font-size-lg);
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.2s ease, text-shadow 0.2s ease;
+    opacity: 0.7;
+    padding: 0;
+}
+
+.cover-image-buttons button:hover {
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+}

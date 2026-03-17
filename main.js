@@ -13,13 +13,20 @@ const postFeed = document.getElementById('postFeed');
 const postFormOverlay = document.getElementById('postFormOverlay');
 const postTitle = document.getElementById('postTitle');
 const postCategory = document.getElementById('postCategory');
+const postCategoryInput = document.getElementById('postCategoryInput');
+const addCategoryToggle = document.getElementById('addCategoryToggle');
 const postFileInput = document.getElementById('postFileInput');
 const postFileName = document.getElementById('postFileName');
 const postText = document.getElementById('postText');
 const postSubmitBtn = document.getElementById('postSubmitBtn');
 const postCancelBtn = document.getElementById('postCancelBtn');
-const addCategoryToggle = document.getElementById('addCategoryToggle');
-const postCategoryInput = document.getElementById('postCategoryInput');
+
+// Cover image prompt
+const coverImageOverlay = document.getElementById('coverImageOverlay');
+const coverImageInput = document.getElementById('coverImageInput');
+const coverImageFileName = document.getElementById('coverImageFileName');
+const coverImageSubmitBtn = document.getElementById('coverImageSubmitBtn');
+const coverImageSkipBtn = document.getElementById('coverImageSkipBtn');
 
 // ============================================
 // STATE VARIABLES
@@ -27,6 +34,7 @@ const postCategoryInput = document.getElementById('postCategoryInput');
 
 let currentUser = null;
 let currentUserData = null;
+let pendingPost = null; // Holds post data while waiting for cover image decision
 
 // ============================================
 // 1. AUTH CHECK
@@ -43,7 +51,6 @@ async function checkAuth() {
     currentUser = session.user;
     console.log('Logged in as:', currentUser.id);
 
-    // Fetch user data (username, pfp) from database
     const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -61,7 +68,23 @@ async function checkAuth() {
 }
 
 // ============================================
-// 2. RIGHT-CLICK TO OPEN POST FORM
+// 2. FILE TYPE DETECTION
+// ============================================
+
+function getFileType(file) {
+    const mime = file.type;
+    if (mime.startsWith('image/')) return 'image';
+    if (mime.startsWith('video/')) return 'video';
+    return 'other';
+}
+
+function isVisualFile(file) {
+    const type = getFileType(file);
+    return type === 'image' || type === 'video';
+}
+
+// ============================================
+// 3. RIGHT-CLICK TO OPEN POST FORM
 // ============================================
 
 function initializePostForm() {
@@ -97,17 +120,15 @@ function initializePostForm() {
         handlePostSubmit();
     });
 
-        // Add category toggle - swap between dropdown and text input
+    // Category toggle - swap between dropdown and text input
     addCategoryToggle.addEventListener('click', () => {
         if (postCategory.style.display !== 'none') {
-            // Switch to text input mode
             postCategory.style.display = 'none';
             postCategoryInput.style.display = 'block';
             postCategoryInput.value = '';
             postCategoryInput.focus();
             addCategoryToggle.textContent = '×';
         } else {
-            // Switch back to dropdown
             postCategory.style.display = 'block';
             postCategoryInput.style.display = 'none';
             postCategoryInput.value = '';
@@ -115,12 +136,29 @@ function initializePostForm() {
         }
     });
 
-    // Enter key in category input adds the category
+    // Enter key in category input
     postCategoryInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             handleAddCategory();
         }
+    });
+
+    // Cover image prompt listeners
+    coverImageInput.addEventListener('change', () => {
+        if (coverImageInput.files[0]) {
+            coverImageFileName.textContent = coverImageInput.files[0].name;
+        } else {
+            coverImageFileName.textContent = 'choose image';
+        }
+    });
+
+    coverImageSubmitBtn.addEventListener('click', () => {
+        handleCoverImageSubmit();
+    });
+
+    coverImageSkipBtn.addEventListener('click', () => {
+        handleCoverImageSkip();
     });
 
     console.log('Post form initialized');
@@ -143,8 +181,15 @@ function closePostForm() {
     addCategoryToggle.textContent = '+';
 }
 
+function closeCoverImagePrompt() {
+    coverImageOverlay.style.display = 'none';
+    coverImageInput.value = '';
+    coverImageFileName.textContent = 'choose image';
+    pendingPost = null;
+}
+
 // ============================================
-// 3. CATEGORIES
+// 4. CATEGORIES
 // ============================================
 
 async function loadCategories() {
@@ -159,7 +204,6 @@ async function loadCategories() {
         return;
     }
 
-    // Clear existing options except "none"
     postCategory.innerHTML = '<option value="">none</option>';
 
     data.forEach(cat => {
@@ -174,7 +218,6 @@ async function loadCategories() {
 
 async function handleAddCategory() {
     const name = postCategoryInput.value.trim();
-
     if (!name) return;
 
     try {
@@ -183,18 +226,12 @@ async function handleAddCategory() {
             .insert([{ name: name, group_id: 'group1' }])
             .select();
 
-        if (error) {
-            console.error('Add category error:', error);
-            throw error;
-        }
+        if (error) throw error;
 
         console.log('Category added:', name);
-
-        // Reload categories and select the new one
         await loadCategories();
         postCategory.value = name;
 
-        // Switch back to dropdown mode
         postCategory.style.display = 'block';
         postCategoryInput.style.display = 'none';
         postCategoryInput.value = '';
@@ -206,7 +243,7 @@ async function handleAddCategory() {
 }
 
 // ============================================
-// 4. POST SUBMISSION
+// 5. POST SUBMISSION
 // ============================================
 
 async function handlePostSubmit() {
@@ -215,7 +252,6 @@ async function handlePostSubmit() {
     const category = postCategory.value || null;
     const file = postFileInput.files[0] || null;
 
-    // Must have at least one thing
     if (!title && !file && !body) {
         alert('Add a title, text, or choose a file');
         return;
@@ -229,17 +265,14 @@ async function handlePostSubmit() {
         // Upload file if one was selected
         if (file) {
             fileName = file.name;
-            fileType = file.type.startsWith('image/') ? 'image' : 'other';
+            fileType = getFileType(file);
 
             const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('group1-posts')
                 .upload(filePath, file);
 
-            if (uploadError) {
-                console.error('File upload error:', uploadError);
-                throw uploadError;
-            }
+            if (uploadError) throw uploadError;
 
             const { data: urlData } = supabase.storage
                 .from('group1-posts')
@@ -249,29 +282,28 @@ async function handlePostSubmit() {
             console.log('File uploaded:', fileURL);
         }
 
-        // Save post to database
-        const { data, error } = await supabase
-            .from('posts')
-            .insert([{
-                user_id: currentUser.id,
-                title: title || null,
-                body: body || null,
-                category: category,
-                file_url: fileURL,
-                file_name: fileName,
-                file_type: fileType,
-                group_id: 'group1'
-            }])
-            .select();
+        // Build the post record
+        const postRecord = {
+            user_id: currentUser.id,
+            title: title || null,
+            body: body || null,
+            category: category,
+            file_url: fileURL,
+            file_name: fileName,
+            file_type: fileType,
+            group_id: 'group1'
+        };
 
-        if (error) {
-            console.error('Post save error:', error);
-            throw error;
+        // If file is non-visual, show cover image prompt before saving
+        if (file && !isVisualFile(file)) {
+            pendingPost = postRecord;
+            closePostForm();
+            coverImageOverlay.style.display = 'flex';
+            return;
         }
 
-        console.log('Post saved:', data[0].id);
-
-        // Close form and reload posts
+        // Otherwise save directly
+        await savePost(postRecord);
         closePostForm();
         await loadPosts();
 
@@ -282,7 +314,78 @@ async function handlePostSubmit() {
 }
 
 // ============================================
-// 5. LOAD AND RENDER POSTS
+// 6. COVER IMAGE PROMPT
+// ============================================
+
+async function handleCoverImageSubmit() {
+    if (!pendingPost) return;
+
+    const coverFile = coverImageInput.files[0];
+    if (!coverFile) {
+        alert('Choose an image or click skip');
+        return;
+    }
+
+    try {
+        // Upload cover image
+        const filePath = `${currentUser.id}/covers/${Date.now()}-${coverFile.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('group1-posts')
+            .upload(filePath, coverFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+            .from('group1-posts')
+            .getPublicUrl(filePath);
+
+        pendingPost.cover_image_url = urlData.publicUrl;
+        console.log('Cover image uploaded:', pendingPost.cover_image_url);
+
+        // Save the post with cover image
+        await savePost(pendingPost);
+        closeCoverImagePrompt();
+        await loadPosts();
+
+    } catch (error) {
+        console.error('Cover image upload failed:', error.message);
+        alert(`Cover image failed: ${error.message}`);
+    }
+}
+
+async function handleCoverImageSkip() {
+    if (!pendingPost) return;
+
+    try {
+        // Save post without cover image
+        await savePost(pendingPost);
+        closeCoverImagePrompt();
+        await loadPosts();
+
+    } catch (error) {
+        console.error('Post save failed:', error.message);
+        alert(`Post failed: ${error.message}`);
+    }
+}
+
+// ============================================
+// 7. SAVE POST TO DATABASE
+// ============================================
+
+async function savePost(postRecord) {
+    const { data, error } = await supabase
+        .from('posts')
+        .insert([postRecord])
+        .select();
+
+    if (error) throw error;
+
+    console.log('Post saved:', data[0].id);
+    return data[0];
+}
+
+// ============================================
+// 8. LOAD AND RENDER POSTS
 // ============================================
 
 async function loadPosts() {
@@ -297,7 +400,6 @@ async function loadPosts() {
         return;
     }
 
-    // Get all user IDs from posts to fetch their data
     const userIds = [...new Set(posts.map(p => p.user_id))];
     const { data: users, error: usersError } = await supabase
         .from('users')
@@ -309,11 +411,9 @@ async function loadPosts() {
         return;
     }
 
-    // Map user data by ID for quick lookup
     const userMap = {};
     users.forEach(u => { userMap[u.id] = u; });
 
-    // Clear feed and render
     postFeed.innerHTML = '';
 
     posts.forEach(post => {
@@ -326,17 +426,30 @@ async function loadPosts() {
 }
 
 // ============================================
-// 6. POST CARD BUILDER
+// 9. POST CARD BUILDER
 // ============================================
 
 function buildPostCard(post, user) {
     const card = document.createElement('div');
     card.className = 'post-card';
 
-    // Determine what content exists
     const hasTitle = post.title && post.title.trim();
-    const hasVisual = post.file_url && post.file_type === 'image';
     const hasText = post.body && post.body.trim();
+
+    // A post has a visual if it's an image, a video, OR a non-visual file with a cover image
+    const hasVisual = post.file_url && (
+        post.file_type === 'image' ||
+        post.file_type === 'video' ||
+        post.cover_image_url
+    );
+
+    // Determine which image to show
+    let visualSrc = null;
+    if (post.file_type === 'image') {
+        visualSrc = post.file_url;
+    } else if (post.cover_image_url) {
+        visualSrc = post.cover_image_url;
+    }
 
     // Build content area
     const content = document.createElement('div');
@@ -348,7 +461,7 @@ function buildPostCard(post, user) {
         content.innerHTML = `
             <div class="post-title">${post.title}</div>
             <div class="post-visual-text-row">
-                <img class="post-image" src="${post.file_url}" alt="">
+                <img class="post-image" src="${visualSrc}" alt="">
                 <div class="post-body">${post.body}</div>
             </div>
         `;
@@ -358,7 +471,7 @@ function buildPostCard(post, user) {
         content.classList.add('post-layout-title-visual');
         content.innerHTML = `
             <div class="post-title">${post.title}</div>
-            <img class="post-image" src="${post.file_url}" alt="">
+            <img class="post-image" src="${visualSrc}" alt="">
         `;
     }
     // Title + text
@@ -373,7 +486,7 @@ function buildPostCard(post, user) {
     else if (hasVisual) {
         content.classList.add('post-layout-visual');
         content.innerHTML = `
-            <img class="post-image" src="${post.file_url}" alt="">
+            <img class="post-image" src="${visualSrc}" alt="">
         `;
     }
     // Title only
@@ -397,7 +510,6 @@ function buildPostCard(post, user) {
     const footer = document.createElement('div');
     footer.className = 'post-footer';
 
-    // PFP
     const pfpSrc = user.pfp_url || `./images/pfps/${user.pfp}`;
     footer.innerHTML = `
         <img class="post-footer-pfp" src="${pfpSrc}" alt="">
@@ -412,7 +524,7 @@ function buildPostCard(post, user) {
 }
 
 // ============================================
-// 7. INITIALIZATION
+// 10. INITIALIZATION
 // ============================================
 
 document.addEventListener('DOMContentLoaded', async () => {

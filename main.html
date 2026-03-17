@@ -35,7 +35,7 @@
                 <!-- File upload -->
                 <label class="post-form-file-label" id="postFileLabel">
                     <span id="postFileName">choose file</span>
-                    <input type="file" id="postFileInput" accept="image/*">
+                    <input type="file" id="postFileInput">
                 </label>
 
                 <!-- Text input -->
@@ -47,6 +47,21 @@
                     <button id="postCancelBtn">cancel</button>
                 </div>
 
+            </div>
+        </div>
+
+        <!-- Cover image prompt overlay -->
+        <div class="cover-image-overlay" id="coverImageOverlay" style="display: none;">
+            <div class="cover-image-prompt">
+                <div class="cover-image-prompt-text">add a cover image?</div>
+                <label class="cover-image-file-label" id="coverImageLabel">
+                    <span id="coverImageFileName">choose image</span>
+                    <input type="file" id="coverImageInput" accept="image/*">
+                </label>
+                <div class="cover-image-buttons">
+                    <button id="coverImageSubmitBtn">upload</button>
+                    <button id="coverImageSkipBtn">skip</button>
+                </div>
             </div>
         </div>
 
