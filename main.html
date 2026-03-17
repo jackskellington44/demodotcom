@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Title Here</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <!-- Main feed page -->
+    <div class="main-page-container" id="mainPageContainer">
+
+        <!-- Post feed -->
+        <div class="post-feed" id="postFeed">
+            <!-- Posts will be loaded here dynamically -->
+        </div>
+
+        <!-- Post form overlay (hidden by default, opens on right-click) -->
+        <div class="post-form-overlay" id="postFormOverlay" style="display: none;">
+            <div class="post-form" id="postForm">
+                <input type="file" id="postImageInput" accept="image/*">
+                <button id="postSubmitBtn">submit</button>
+                <button id="postCancelBtn">cancel</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module" src="./main.js"></script>
+</body>
+</html>

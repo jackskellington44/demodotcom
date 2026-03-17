@@ -1,0 +1,128 @@
+1. FOLDER STRUCTURE
+
+    demodotcom/
+    |
+    |-- images/
+    |   |-- background.jpg                    (144.3 KB)
+    |   |-- pfps/
+    |       |-- pfp1.jpg                      (122.9 KB)
+    |       |-- pfp2.jpg                      (64.9 KB)
+    |       |-- pfp3.jpg                      (246.3 KB)
+    |       |-- pfp4.jpg                      (59.4 KB)
+    |       |-- pfp5.jpg                      (77.1 KB)
+    |       |-- pfp6.jpg                      (63.7 KB)
+    |       |-- pfp7.jpg                      (880.3 KB)
+    |       |-- pfp8.jpg                      (32.7 KB)
+    |       |-- pfp9.jpg                      (49.5 KB)
+    |       |-- pfp10.jpg                     (94.9 KB)
+    |       |-- pfp11.jpg                     (93.1 KB)
+    |       |-- pfp12.jpg                     (75.7 KB)
+    |       |-- pfp13.jpg                     (216.0 KB)
+    |       |-- pfp14.jpg                     (63.7 KB)
+    |       |-- pfp15.jpg                     (43.0 KB)
+    |       |-- pfp16.jpg                     (72.1 KB)
+    |       |-- pfp16.webp                    (47.9 KB)
+    |       |-- pfp17.jpg                     (37.4 KB)
+    |       |-- pfp18.jpg                     (133.4 KB)
+    |       |-- pfp19.jpg                     (30.1 KB)
+    |
+    |-- node_modules/                         
+    |
+    |-- .gitignore                            (2.0 KB)
+    |-- index.html                            (2.0 KB)
+    |-- main.js                               (12.4 KB)
+    |-- package.json                          (212 B)
+    |-- package-lock.json                     (32.4 KB)
+    |-- style.css                             (5.9 KB)
+    |-- supabase-config.js                    (425 B)
+    |-- vite.config.js                        (118 B)
+
+
+# Last updated: 2026-03-17
+
+## PROJECT OVERVIEW
+- Social posting site with login/signup
+- Will eventually be 7 versions (same code, different themes/assets)
+- One Supabase project, 7 data groups
+- Build it fully first as one site, then duplicate
+
+## CURRENT STATUS
+- Landing page (index.html): login/signup with PFP selection -- WORKING
+- Supabase auth: login + signup -- WORKING
+- Supabase storage: custom PFP upload -- WORKING
+- Supabase database: user record saving -- WORKING
+- Main page (post feed): NOT STARTED
+- Post submission (right-click form): NOT STARTED
+- Redirect after login/signup: NOT STARTED
+
+## BUILD ORDER
+1. [x] Landing page login/signup
+2. [ ] Create main.html (post feed page)
+3. [ ] Wire redirect from landing to main after login/signup
+4. [ ] Right-click post form overlay on main page
+5. [ ] Save posts to Supabase (posts table + storage bucket)
+6. [ ] Load and display posts on main page
+7. [ ] Test full flow end to end
+8. [ ] Bulk up features
+9. [ ] Refactor into multi-site structure, make 7 copies
+
+## SITE-SPECIFIC VARIABLES (track for 7-site split later)
+- background image: ./images/background.jpg
+- PFP image set: ./images/pfps/
+- PFP storage bucket: "group1-pfps"
+- user table: "users" (will need group column or separate tables)
+- post storage bucket: TBD (will be something like "group1-posts")
+- post table: TBD (will need group_id column)
+- site title: "Title Here" (in index.html <title>)
+- fake email domain: "@demodotcom.com" (used in auth)
+- font family: Arial, Helvetica, sans-serif (in body CSS)
+
+## FILE MAP
+
+### index.html (landing page)
+- Head: meta, title, CSS
+- Top Container: PFP selection grid (signup only)
+- Bottom Left: login/signup input fields
+- Bottom Right: login/signup toggle buttons
+- Hidden: file upload input for custom PFP
+- Script: loads main.js
+
+### style.css
+- :root -- CSS variables (font sizes, responsive)
+- * / body -- reset, base styles
+- 1.0 -- main container (full screen, background)
+- 2.0 -- top container (PFP area)
+- 3.0 -- bottom container (inputs + buttons wrapper)
+- 3.1 -- bottom left (inputs)
+- 3.2 -- bottom right (buttons)
+- 4.0 -- input groups (wrapper)
+- 4.1 -- input lines (text inputs)
+- 5.0 -- view toggle buttons (login/signup)
+- 6.0 -- PFP selection container
+- 6.1 -- PFP grid
+- 6.2 -- PFP containers (individual)
+- 6.3 -- upload PFP container (+)
+- 7.0 -- utility classes
+- 8.0+ -- (RESERVED for main page styles)
+
+### main.js
+- Imports -- supabase client
+- Config -- PFP list + grid loader
+- DOM -- element references
+- State -- selectedPFP, uploadedPFP
+- 1 -- view management (login/signup toggle)
+- 2 -- PFP selection + upload
+- 3 -- form validation
+- 4 -- supabase auth: login [WORKING, DO NOT TOUCH]
+- 5 -- supabase auth: signup [WORKING, DO NOT TOUCH]
+- 6 -- supabase storage: PFP upload [WORKING, DO NOT TOUCH]
+- 7 -- supabase database: save user [WORKING, DO NOT TOUCH]
+- 8 -- form submission (enter key)
+- 9 -- initialization
+- 10+ -- (RESERVED for main page / post logic)
+
+### supabase-config.js [DO NOT TOUCH]
+- Creates and exports supabase client
+
+### vite.config.js [DO NOT TOUCH]
+- Dev server config (port 5173, auto-open)
