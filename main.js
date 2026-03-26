@@ -71,6 +71,25 @@ let activePostForModal = null;
 let lastRightClick = 0;
 const DOUBLE_CLICK_THRESHOLD = 400; // ms
 
+
+// Ca
+let canvasOffsetX = 0;
+let canvasOffsetY = 0;
+
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+let panStartOffsetX = 0;
+let panStartOffsetY = 0;
+
+// ============================================
+// 0. CANVAS PANNING
+// ============================================
+
+function applyCanvasTransform() {
+  postCanvas.style.transform = `translate(${canvasOffsetX}px, ${canvasOffsetY}px)`;
+}
+
 // ============================================
 // 1. AUTH CHECK
 // ============================================
@@ -800,7 +819,39 @@ function buildPostCard(post, user) {
 // ============================================
 
 function initializeEventListeners() {
+
+    
     const canvasViewport = document.getElementById('canvasViewport');
+
+    // Pan by dragging empty space
+    canvasViewport.addEventListener('mousedown', (e) => {
+    // only left click
+    if (e.button !== 0) return;
+
+    // if clicked on a post card, don't pan (we'll use that later for placement drag)
+    if (e.target.closest('.post-card')) return;
+
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panStartOffsetX = canvasOffsetX;
+    panStartOffsetY = canvasOffsetY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+    canvasOffsetX = panStartOffsetX + dx;
+    canvasOffsetY = panStartOffsetY + dy;
+    applyCanvasTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+    isPanning = false;
+    });
+
+    
 
     // Right-click: single = open/close form, double = toggle edit mode
     (canvasViewport || mainPageContainer).addEventListener('contextmenu', (e) => {

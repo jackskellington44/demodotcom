@@ -860,7 +860,7 @@ input[type=number]::-webkit-outer-spin-button {
 #canvasViewport {
   position: fixed;
   inset: 0;
-  overflow: auto; /* <-- IMPORTANT: enables scroll both directions */
+  overflow: hidden; /* back to hidden for manual pan */
   background-image: url('./images/background.jpg');
   background-size: cover;
   background-position: center;
@@ -868,12 +868,14 @@ input[type=number]::-webkit-outer-spin-button {
   background-attachment: fixed;
 }
 
-/* Make the canvas a big surface */
 #postCanvas {
-  position: relative; /* <-- IMPORTANT: children absolute relative to this */
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 6000px;
   height: 6000px;
-  background: transparent;
+  transform: translate(0px, 0px);
+  will-change: transform;
 }
 
 /* Cards are absolutely positioned within the canvas */
