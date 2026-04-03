@@ -906,3 +906,6 @@ input[type=number]::-webkit-outer-spin-button {
 #postCanvas {
   z-index: 10;
 }
+
+#canvasViewport { position: fixed; inset: 0; overflow: hidden; }
+#linkLayer { position: absolute; inset: 0; }

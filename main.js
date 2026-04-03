@@ -500,10 +500,12 @@ async function loadLinks() {
 
 function renderLinks(posts, links) {
   if (!linkLayer || !postCanvas) return;
-
   linkLayer.innerHTML = '';
 
   const postsById = new Map((posts || []).map(p => [String(p.id), p]));
+
+  // linkLayer fills the viewport; use its own rect as the SVG coordinate origin
+  const svgRect = linkLayer.getBoundingClientRect();
 
   for (const link of (links || [])) {
     const a = postsById.get(String(link.a_post_id));
@@ -514,17 +516,14 @@ function renderLinks(posts, links) {
     const bEl = postCanvas.querySelector(`.post-card[data-post-id="${b.id}"]`);
     if (!aEl || !bEl) continue;
 
-    // centers in CANVAS coords
-    const ax = parseFloat(aEl.style.left || '0') + (aEl.offsetWidth / 2) / canvasScale;
-    const ay = parseFloat(aEl.style.top  || '0') + (aEl.offsetHeight / 2) / canvasScale;
-    const bx = parseFloat(bEl.style.left || '0') + (bEl.offsetWidth / 2) / canvasScale;
-    const by = parseFloat(bEl.style.top  || '0') + (bEl.offsetHeight / 2) / canvasScale;
+    const aRect = aEl.getBoundingClientRect();
+    const bRect = bEl.getBoundingClientRect();
 
-    // convert to viewport coords
-    const x1 = ax * canvasScale + canvasOffsetX;
-    const y1 = ay * canvasScale + canvasOffsetY;
-    const x2 = bx * canvasScale + canvasOffsetX;
-    const y2 = by * canvasScale + canvasOffsetY;
+    // center points in VIEWPORT px
+    const x1 = (aRect.left + aRect.right) / 2 - svgRect.left;
+    const y1 = (aRect.top + aRect.bottom) / 2 - svgRect.top;
+    const x2 = (bRect.left + bRect.right) / 2 - svgRect.left;
+    const y2 = (bRect.top + bRect.bottom) / 2 - svgRect.top;
 
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', x1);
