@@ -22,6 +22,19 @@
     --post-footer-size: var(--font-size-sm);
 }
 
+:root {
+  --bg-url: url("./images/background.jpg");
+}
+
+.main-container {
+  background-image: var(--bg-url);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: white;
+}
+
 /* ============================================ */
 /* RESET                                        */
 /* ============================================ */
@@ -45,7 +58,6 @@ body {
     width: 100vw;
     height: 100vh;
     padding: 2%;
-    background-image: url('./images/background.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;

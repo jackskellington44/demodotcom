@@ -70,6 +70,8 @@ let uploadPFPButton; // Will be set after PFPs load
 let selectedPFP = null;
 let uploadedPFP = null;
 
+
+
 // ============================================
 // 1. VIEW MANAGEMENT
 // ============================================
@@ -401,6 +403,11 @@ function initializeFormSubmission() {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('✓ DOM loaded');
+
+    document.documentElement.style.setProperty(
+    "--bg-url",
+    `url(${import.meta.env.BASE_URL}images/background.jpg)`
+    );
     
     loadPFPGrid();
     initializeViews();
