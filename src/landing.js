@@ -17,29 +17,33 @@ const PFP_LIST = [
 
 function loadPFPGrid() {
     const pfpGrid = document.getElementById('pfpGrid');
-    
+
+    // If this function ever gets called twice, avoid duplicating items
+    if (!pfpGrid) return;
+    pfpGrid.innerHTML = '';
+
     // Load all PFP images
     PFP_LIST.forEach(pfp => {
         const container = document.createElement('div');
         container.className = 'pfp-container';
         container.dataset.pfp = pfp;
-        
+
         const img = document.createElement('img');
         img.src = `${import.meta.env.BASE_URL}images/pfps/${pfp}`;
         img.alt = pfp;
-        
+
         container.appendChild(img);
         pfpGrid.appendChild(container);
     });
-    
+
     // Add upload button as 20th item
     const uploadContainer = document.createElement('div');
     uploadContainer.className = 'upload-pfp-container';
     uploadContainer.id = 'uploadPFPButton';
     uploadContainer.innerHTML = '<span>+</span>';
-    
+
     pfpGrid.appendChild(uploadContainer);
-    
+
     console.log(`✓ Loaded ${PFP_LIST.length} PFP options + upload button`);
 }
 
@@ -96,6 +100,32 @@ function initializeViews() {
     setActiveView('login');
 }
 
+// NEW: logged-in / logged-out UI switching (no page navigation)
+function showLoggedOutView() {
+    // Ensure toggles are visible again
+    loginToggle.style.display = '';
+    signupToggle.style.display = '';
+
+    // Default back to login view
+    setActiveView('login');
+}
+
+function showLoggedInView() {
+    // Hide login/signup views
+    loginInputs.style.display = 'none';
+    signupInputs.style.display = 'none';
+
+    // Hide toggles so user can’t switch back to login/signup while logged in
+    loginToggle.style.display = 'none';
+    signupToggle.style.display = 'none';
+
+    // Show whatever your “post-auth” view is (you already use pfpSelection)
+    pfpSelection.style.display = 'flex';
+
+    // Optional styling hook (won’t break anything if CSS doesn’t use it)
+    if (mainContainer) mainContainer.classList.add('logged-in');
+}
+
 // ============================================
 // 2. PFP SELECTION
 // ============================================
@@ -103,28 +133,28 @@ function initializeViews() {
 function initializePFPSelection() {
     pfpContainers = document.querySelectorAll('.pfp-container');
     uploadPFPButton = document.getElementById('uploadPFPButton');
-    
+
     pfpContainers.forEach(container => {
         container.addEventListener('click', function() {
             // Deselect all
             pfpContainers.forEach(p => p.classList.remove('selected'));
             uploadPFPButton.classList.remove('selected');
-            
+
             // Select clicked PFP
             this.classList.add('selected');
             selectedPFP = this.dataset.pfp;
             uploadedPFP = null;
-            
+
             console.log('Selected PFP:', selectedPFP);
         });
     });
-    
+
     console.log('✓ PFP selection initialized');
 }
 
 function initializePFPUpload() {
     uploadPFPButton = document.getElementById('uploadPFPButton');
-    
+
     uploadPFPButton.addEventListener('click', () => {
         pfpUpload.click();
     });
@@ -136,20 +166,20 @@ function initializePFPUpload() {
             reader.onload = (event) => {
                 // Deselect all PFPs
                 pfpContainers.forEach(p => p.classList.remove('selected'));
-                
+
                 // Mark upload as selected
                 uploadPFPButton.classList.add('selected');
                 uploadPFPButton.innerHTML = '<span>✓</span>';
-                
+
                 selectedPFP = null;
                 uploadedPFP = event.target.result;
-                
+
                 console.log('Uploaded PFP');
             };
             reader.readAsDataURL(file);
         }
     });
-    
+
     console.log('✓ PFP upload initialized');
 }
 
@@ -208,18 +238,19 @@ async function handleLogin() {
     try {
         // Supabase Auth uses email
         const email = `${username}@demodotcom.com`;
-        
+
         const { data, error } = await supabase.auth.signInWithPassword({
             email: email,
             password: password
         });
-        
+
         if (error) throw error;
-        
+
         console.log('Login successful:', data.user.id);
-        window.location.href = "./";
-        
-        // TODO: Redirect to dashboard
+
+        // CHANGED: no navigation; show “main” UI on same page
+        showLoggedInView();
+
     } catch (error) {
         console.error('Login error:', error.message);
         alert(`Login failed: ${error.message}`);
@@ -240,14 +271,14 @@ async function handleSignup() {
     try {
         // Create user in Supabase Auth
         const email = `${username}@demodotcom.com`;
-        
+
         const { data, error } = await supabase.auth.signUp({
             email: email,
             password: password
         });
-        
+
         if (error) throw error;
-        
+
         const userId = data.user.id;
         console.log('User created:', userId);
 
@@ -263,7 +294,7 @@ async function handleSignup() {
         }
 
         console.log('Auto signed in with session');
-        
+
         // Upload PFP if custom image
         let pfpURL = null;
         if (uploadedPFP) {
@@ -271,7 +302,7 @@ async function handleSignup() {
             pfpURL = await uploadPFPToStorage(userId, uploadedPFP);
             console.log('PFP upload complete, URL:', pfpURL);
         }
-        
+
         // Save user data to Supabase database
         await saveUserToDatabase(userId, username, pfp, pfpURL);
         console.log('User saved to database');
@@ -282,9 +313,9 @@ async function handleSignup() {
         selectedPFP = null;
         uploadedPFP = null;
 
-        // Everything done, NOW redirect
-        console.log('ALL DONE - redirecting');
-        window.location.href = './main.html';
+        // CHANGED: no navigation; show “main” UI on same page
+        console.log('ALL DONE - showing main view');
+        showLoggedInView();
 
     } catch (error) {
         console.error('Signup error:', error.message);
@@ -301,29 +332,29 @@ async function uploadPFPToStorage(userId, imageData) {
         const response = await fetch(imageData);
         const blob = await response.blob();
         const file = new File([blob], `${userId}.jpg`, { type: 'image/jpeg' });
-        
+
         console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
-        
+
         // Get current user/session for debugging
         const { data: { user } } = await supabase.auth.getUser();
         console.log('Current user:', user?.id);
-        
+
         // Upload file to Supabase Storage
         const { data, error } = await supabase.storage
             .from('group1-pfps')
             .upload(`${userId}.jpg`, file);
-        
+
         if (error) {
             console.error('Full storage error:', JSON.stringify(error));
             throw error;
         }
-        
+
         console.log('✓ PFP uploaded to Storage');
-        
+
         const { data: urlData } = supabase.storage
             .from('group1-pfps')
             .getPublicUrl(`${userId}.jpg`);
-        
+
         console.log('✓ PFP URL:', urlData.publicUrl);
         return urlData.publicUrl;
     } catch (error) {
@@ -359,12 +390,12 @@ async function saveUserToDatabase(userId, username, pfp, pfpURL) {
                     updated_at: new Date()
                 }
             ]);
-        
+
         if (error) {
             console.error('Insert error details:', error);
             throw error;
         }
-        
+
         console.log('✓ User saved to database');
     } catch (error) {
         console.error('Database error:', error);
@@ -391,7 +422,7 @@ function initializeFormSubmission() {
     document.querySelectorAll('input').forEach(input => {
         input.addEventListener('keypress', handleEnterKey);
     });
-    
+
     console.log('✓ Form submission initialized');
 }
 
@@ -399,14 +430,28 @@ function initializeFormSubmission() {
 // 9. INITIALIZATION
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('✓ DOM loaded');
-    
+
     loadPFPGrid();
     initializeViews();
     initializePFPSelection();
     initializePFPUpload();
     initializeFormSubmission();
-    
+
+    // NEW: restore view based on whether user is already logged in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+        showLoggedInView();
+    } else {
+        showLoggedOutView();
+    }
+
+    // Optional: keep UI in sync if auth state changes
+    supabase.auth.onAuthStateChange((_event, session) => {
+        if (session) showLoggedInView();
+        else showLoggedOutView();
+    });
+
     console.log('✓ All systems initialized');
 });
