@@ -68,6 +68,7 @@ let activeUserFilter = null;      // user_id
 let activeCategoryFilter = null;  // category name or NONE_CATEGORY_FILTER
 const NONE_CATEGORY_FILTER = '__NONE__';
 
+
 // Modal state
 let activePostForModal = null;
 
@@ -78,6 +79,42 @@ const DOUBLE_CLICK_THRESHOLD = 400; // ms
 // Cache last loaded data for re-rendering link lines on pan/zoom/move
 let lastLoadedPosts = [];
 let lastLoadedLinks = [];
+
+let activeLinkTreeRootPostId = null; // any post id inside the selected connected component
+
+function buildAdjacency(links) {
+  const adj = new Map(); // postId -> Set(postId)
+  for (const l of (links || [])) {
+    const a = String(l.a_post_id);
+    const b = String(l.b_post_id);
+    if (!adj.has(a)) adj.set(a, new Set());
+    if (!adj.has(b)) adj.set(b, new Set());
+    adj.get(a).add(b);
+    adj.get(b).add(a);
+  }
+  return adj;
+}
+
+function getConnectedComponent(startId, links) {
+  const start = String(startId);
+  const adj = buildAdjacency(links);
+  const seen = new Set();
+  const stack = [start];
+
+  while (stack.length) {
+    const cur = stack.pop();
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+
+    const neighbors = adj.get(cur);
+    if (!neighbors) continue;
+    for (const n of neighbors) {
+      if (!seen.has(n)) stack.push(n);
+    }
+  }
+
+  return seen;
+}
 
 // ============================================
 // CANVAS PAN + PLACEMENT STATE
@@ -420,6 +457,8 @@ async function handleDeletePost(postId) {
 
     console.log('Post deleted:', postId);
     await loadPosts();
+    await loadLinks();
+    renderLinks(lastLoadedPosts, lastLoadedLinks);
   } catch (error) {
     console.error('Delete failed:', error.message);
     alert(`Delete failed: ${error.message}`);
@@ -518,12 +557,20 @@ function renderLinks(posts, links) {
 
   const postsById = new Map((posts || []).map(p => [String(p.id), p]));
 
+  // Only render links that are fully inside the current visible set (tree view etc.)
+  const allowedIds = new Set((posts || []).map(p => String(p.id)));
+
   // linkLayer fills the viewport; use its own rect as the SVG coordinate origin
   const svgRect = linkLayer.getBoundingClientRect();
 
   for (const link of (links || [])) {
-    const a = postsById.get(String(link.a_post_id));
-    const b = postsById.get(String(link.b_post_id));
+    const aId = String(link.a_post_id);
+    const bId = String(link.b_post_id);
+
+    if (!allowedIds.has(aId) || !allowedIds.has(bId)) continue;
+
+    const a = postsById.get(aId);
+    const b = postsById.get(bId);
     if (!a || !b) continue;
 
     const aEl = postCanvas.querySelector(`.post-card[data-post-id="${a.id}"]`);
@@ -533,18 +580,49 @@ function renderLinks(posts, links) {
     const aRect = aEl.getBoundingClientRect();
     const bRect = bEl.getBoundingClientRect();
 
-    // center points in VIEWPORT px
+    // center points in VIEWPORT px (relative to svg origin)
     const x1 = (aRect.left + aRect.right) / 2 - svgRect.left;
     const y1 = (aRect.top + aRect.bottom) / 2 - svgRect.top;
     const x2 = (bRect.left + bRect.right) / 2 - svgRect.left;
     const y2 = (bRect.top + bRect.bottom) / 2 - svgRect.top;
 
+    const d = orthogonalPathD(x1, y1, x2, y2);
+
+    // --- HIT PATH (invisible but thick; receives click) ---
+    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    hit.setAttribute('d', d);
+    hit.setAttribute('fill', 'none');
+    hit.setAttribute('stroke', 'rgba(0,0,0,0)'); // invisible
+    hit.setAttribute('stroke-width', '14');      // big click target
+    hit.style.pointerEvents = 'stroke';
+    hit.style.cursor = 'pointer';
+
+    hit.addEventListener('click', (e) => {
+      e.stopPropagation();
+      console.log('LINK CLICKED', link);
+
+      // Exclusive: clicking a link clears other filters
+      activeUserFilter = null;
+      activeCategoryFilter = null;
+
+      // Pick any endpoint as the "root" for the component
+      activeLinkTreeRootPostId = aId;
+
+      loadPosts();
+    });
+
+    linkLayer.appendChild(hit);
+
+    // --- VISIBLE PATH (thin; ignores clicks so hit-path gets them) ---
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', orthogonalPathD(x1, y1, x2, y2));
+    path.setAttribute('d', d);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', 'rgba(255,255,255,0.22)');
     path.setAttribute('stroke-width', '2');
-    path.setAttribute('stroke-linejoin', 'round'); // makes the corner nicer
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-linecap', 'round');
+    path.style.pointerEvents = 'none';
+
     linkLayer.appendChild(path);
   }
 }
@@ -611,6 +689,8 @@ async function handlePostSubmit() {
       await updatePost(editingPostId, postRecord);
       closePostForm();
       await loadPosts();
+    await loadLinks();
+    renderLinks(lastLoadedPosts, lastLoadedLinks);
       return;
     }
 
@@ -656,9 +736,9 @@ async function handlePostSubmit() {
 
     closePostForm();
 
-    await loadPosts();
-    await loadLinks();
-    renderLinks(lastLoadedPosts, lastLoadedLinks);
+   await loadPosts();
+await loadLinks();
+renderLinks(lastLoadedPosts, lastLoadedLinks);
 
     const createdEl = postCanvas.querySelector(`.post-card[data-post-id="${created.id}"]`);
     if (createdEl) {
@@ -713,9 +793,9 @@ async function handleCoverImageSubmit() {
     }
 
     closeCoverImagePrompt();
-    await loadPosts();
-    await loadLinks();
-    renderLinks(lastLoadedPosts, lastLoadedLinks);
+   await loadPosts();
+await loadLinks();
+renderLinks(lastLoadedPosts, lastLoadedLinks);
   } catch (error) {
     console.error('Cover image upload failed:', error.message);
     alert(`Cover image failed: ${error.message}`);
@@ -736,9 +816,9 @@ async function handleCoverImageSkip() {
     }
 
     closeCoverImagePrompt();
-    await loadPosts();
-    await loadLinks();
-    renderLinks(lastLoadedPosts, lastLoadedLinks);
+  await loadPosts();
+await loadLinks();
+renderLinks(lastLoadedPosts, lastLoadedLinks);
   } catch (error) {
     console.error('Post save failed:', error.message);
     alert(`Post failed: ${error.message}`);
@@ -862,7 +942,6 @@ async function submitComment() {
 // ============================================
 // 11. LOAD AND RENDER POSTS (canvas)
 // ============================================
-
 async function loadPosts() {
   try {
     let query = supabase
@@ -874,6 +953,9 @@ async function loadPosts() {
     if (editMode) {
       query = query.eq('user_id', currentUser.id);
     } else {
+      // NOTE: tree filter is exclusive, but we do NOT clear it here.
+      // We clear it only when user clicks category/username (in those handlers),
+      // or when they click empty background (optional).
       if (activeUserFilter) {
         query = query.eq('user_id', activeUserFilter);
       }
@@ -893,9 +975,16 @@ async function loadPosts() {
       return;
     }
 
+    // Store + apply tree filter (exclusive)
     lastLoadedPosts = posts || [];
 
-    const userIds = [...new Set((posts || []).map(p => p.user_id).filter(Boolean))];
+    if (activeLinkTreeRootPostId) {
+      const allowed = getConnectedComponent(activeLinkTreeRootPostId, lastLoadedLinks);
+      lastLoadedPosts = lastLoadedPosts.filter(p => allowed.has(String(p.id)));
+    }
+
+    // Build user map based on *visible* posts (so you don't fetch unused users)
+    const userIds = [...new Set((lastLoadedPosts || []).map(p => p.user_id).filter(Boolean))];
 
     let users = [];
     if (userIds.length > 0) {
@@ -920,18 +1009,17 @@ async function loadPosts() {
     }
 
     postCanvas.innerHTML = '';
-
     buildPostCard._indexCounter = 0;
 
-    (posts || []).forEach(post => {
+    // IMPORTANT: render from lastLoadedPosts (filtered), not posts
+    (lastLoadedPosts || []).forEach(post => {
       const user = userMap[post.user_id] || {};
       const card = buildPostCard(post, user);
       postCanvas.appendChild(card);
     });
 
-    console.log(`Loaded ${posts?.length || 0} posts`);
+    console.log(`Loaded ${lastLoadedPosts?.length || 0} posts`);
 
-    // re-render links if we already have them
     renderLinks(lastLoadedPosts, lastLoadedLinks);
   } catch (err) {
     console.error('loadPosts crashed:', err);
@@ -1096,10 +1184,17 @@ function initializeEventListeners() {
   const canvasViewport = document.getElementById('canvasViewport');
 
   // Pan by dragging empty space
-  canvasViewport.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    if (isPlacing) return;
-    if (e.target.closest('.post-card')) return;
+canvasViewport.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (isPlacing) return;
+  if (e.target.closest('.post-card')) return;
+
+  // NEW: if tree mode is active, clicking background exits it instead of panning
+  if (activeLinkTreeRootPostId) {
+    activeLinkTreeRootPostId = null;
+    loadPosts();
+    return;
+  }
 
     isPanning = true;
     panStartX = e.clientX;
@@ -1168,10 +1263,8 @@ function initializeEventListeners() {
 
   // Wheel zoom (disable during placement to keep it stable)
   canvasViewport.addEventListener('wheel', (e) => {
-    if (isPlacing) {
       e.preventDefault();
-      return;
-    }
+  
 
     e.preventDefault();
 
