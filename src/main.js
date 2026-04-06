@@ -1374,6 +1374,11 @@ canvasViewport.addEventListener('mousedown', (e) => {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Main page loaded');
 
+  document.documentElement.style.setProperty(
+    "--bg-url",
+    `url(${import.meta.env.BASE_URL}images/background.jpg)`
+  );
+
   const session = await checkAuth();
   if (!session) return;
 
