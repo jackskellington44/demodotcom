@@ -617,7 +617,7 @@ function renderLinks(posts, links) {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', d);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', 'rgba(255,255,255,0.22)');
+    path.setAttribute('stroke', 'rgba(0, 0, 0, 0.09)');
     path.setAttribute('stroke-width', '2');
     path.setAttribute('stroke-linejoin', 'round');
     path.setAttribute('stroke-linecap', 'round');

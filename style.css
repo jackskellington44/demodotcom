@@ -20,11 +20,11 @@
     --post-title-size: var(--font-size-lg);
     --post-body-size: calc(var(--font-size-lg) / 2);
     --post-footer-size: var(--font-size-sm);
+
+    --bg-url: url("./images/background.jpg");
+
 }
 
-:root {
-  --bg-url: url("./images/background.jpg");
-}
 
 .main-container {
   background-image: var(--bg-url);
@@ -486,7 +486,7 @@ input[type=number]::-webkit-outer-spin-button {
 /* Same size/weight as login-signup input text */
 .post-title {
     font-size: var(--post-title-size);
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(0, 0, 0, 0.8);
     line-height: 1.2;
     font-family: inherit;
     white-space: nowrap;
@@ -501,7 +501,7 @@ input[type=number]::-webkit-outer-spin-button {
 /* Half the size of title */
 .post-body {
     font-size: var(--post-body-size);
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(0, 0, 0, 0.6);
     line-height: 1.5;
     font-family: inherit;
 }
@@ -602,13 +602,13 @@ input[type=number]::-webkit-outer-spin-button {
 
 .post-footer-username {
     font-size: var(--post-footer-size);
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(0, 0, 0, 0.5);
     font-family: inherit;
 }
 
 .post-footer-filename {
     font-size: var(--post-footer-size);
-    color: rgba(255, 255, 255, 0.3);
+    color: rgba(0, 0, 0, 0.3);
     font-family: inherit;
     white-space: nowrap;
     overflow: hidden;
@@ -618,7 +618,7 @@ input[type=number]::-webkit-outer-spin-button {
 
 .post-footer-category {
     font-size: var(--post-footer-size);
-    color: rgba(255, 255, 255, 0.3);
+    color: rgba(0, 0, 0, 0.3);
     font-family: inherit;
     margin-left: auto;
 }
@@ -655,8 +655,8 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .cover-image-file-label {
-    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
-    color: rgba(255, 255, 255, 0.5);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.5);
+    color: rgba(0, 0, 0, 0.5);
     font-size: var(--font-size-md);
     font-family: inherit;
     cursor: pointer;
@@ -708,7 +708,7 @@ input[type=number]::-webkit-outer-spin-button {
 /* === 13.1 EDIT/DELETE FOOTER ACTIONS === */
 .post-footer-action {
     font-size: var(--post-footer-size);
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 0, 0, 0.5);
     font-family: inherit;
     cursor: pointer;
     transition: color 0.2s ease;
@@ -762,105 +762,208 @@ input[type=number]::-webkit-outer-spin-button {
 /* 16.0 POST DETAIL MODAL                       */
 /* ============================================ */
 
+/* ============================================ */
+/* 16.0 POST DETAIL MODAL                       */
+/* ============================================ */
+
 #postDetailOverlay {
     position: fixed;
     inset: 0;
     z-index: 100;
-    background: rgba(0, 0, 0, 0.6);
+    background: #000;
     display: none;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    overflow-y: auto;
 }
 
 .post-detail-modal {
-    width: min(900px, 92vw);
-    max-height: 88vh;
-    overflow-y: auto;
-    background: rgba(20, 20, 20, 0.95);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 14px;
-    padding: 16px;
+    width: 100%;
+    min-height: 100vh;
+    background: #000;
+    border: none;
+    border-radius: 0;
+    padding: 40px clamp(24px, 6vw, 120px);
+    max-width: 820px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
+/* --- Close button --- */
 .post-detail-header {
     display: flex;
     justify-content: flex-end;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 0 0 12px 0;
+    background: transparent;
 }
 
 .post-detail-close {
     cursor: pointer;
-    font-size: 24px;
-    line-height: 24px;
-    color: rgba(255,255,255,0.7);
+    font-size: 28px;
+    line-height: 28px;
+    color: rgba(255,255,255,0.35);
+    transition: color 0.2s ease;
 }
 
 .post-detail-close:hover {
-    color: rgba(255,255,255,1);
+    color: rgba(255,255,255,0.9);
+}
+
+/* --- Content area --- */
+.post-detail-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 .post-detail-content .post-title {
-    font-size: 1.2em;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+}
+
+.post-detail-content .post-image {
+    width: 100%;
+    max-height: 520px;
+    object-fit: cover;
+    border-radius: 12px;
+    display: block;
+}
+
+.post-detail-content .post-video {
+    width: 100%;
+    max-height: 520px;
+    border-radius: 12px;
+    display: block;
+    background: #111;
 }
 
 .post-detail-content .post-body {
-    margin-top: 10px;
-    opacity: 0.9;
+    font-size: 0.95rem;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.7;
+    margin: 0;
+    opacity: 1;
 }
 
+.post-detail-content .post-file-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.post-detail-content .post-file-actions a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 0.85rem;
+    padding: 6px 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    transition: all 0.2s ease;
+}
+
+.post-detail-content .post-file-actions a:hover {
+    color: #fff;
+    border-color: rgba(255,255,255,0.4);
+}
+
+.post-detail-meta {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.35);
+    margin-top: 4px;
+}
+
+/* --- Comments --- */
 .post-detail-comments {
-    margin-top: 16px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255,255,255,0.10);
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.08);
 }
 
 .post-detail-comments-title {
-    opacity: 0.8;
-    margin-bottom: 10px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.35);
+    text-transform: lowercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 14px;
 }
 
 .comments-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 16px;
 }
 
 .comment-row {
     display: flex;
     gap: 8px;
-    align-items: flex-start;
+    align-items: baseline;
 }
 
 .comment-username {
-    opacity: 0.8;
+    color: rgba(255,255,255,0.45);
+    font-size: 0.8rem;
     white-space: nowrap;
 }
 
 .comment-body {
-    opacity: 0.95;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.85rem;
 }
 
 .comment-form {
     display: flex;
     gap: 8px;
+    padding-bottom: 40px;
 }
 
 .comment-input {
     flex: 1;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
     color: white;
-    padding: 10px 12px;
-    border-radius: 10px;
+    padding: 10px 14px;
+    border-radius: 20px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.comment-input::placeholder {
+    color: rgba(255,255,255,0.2);
+}
+
+.comment-input:focus {
+    border-color: rgba(255,255,255,0.25);
 }
 
 .comment-submit-btn {
-    background: rgba(255,255,255,0.10);
-    border: 1px solid rgba(255,255,255,0.15);
-    color: white;
-    padding: 10px 14px;
-    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.5);
+    padding: 10px 18px;
+    border-radius: 20px;
     cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.comment-submit-btn:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(255,255,255,0.25);
 }
 
 /* ============================================ */
