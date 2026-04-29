@@ -36,11 +36,9 @@ const postCancelBtn = document.getElementById('postCancelBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 
 // Cover image prompt
-const coverImageOverlay = document.getElementById('coverImageOverlay');
-const coverImageInput = document.getElementById('coverImageInput');
-const coverImageFileName = document.getElementById('coverImageFileName');
-const coverImageSubmitBtn = document.getElementById('coverImageSubmitBtn');
-const coverImageSkipBtn = document.getElementById('coverImageSkipBtn');
+const postCoverImageLabel = document.getElementById('postCoverImageLabel');
+const postCoverImageInput = document.getElementById('postCoverImageInput');
+const postCoverFileName   = document.getElementById('postCoverFileName');
 
 // Post detail modal
 const postDetailOverlay = document.getElementById('postDetailOverlay');
@@ -168,10 +166,11 @@ function viewportPointToCanvasPoint(clientX, clientY) {
 }
 
 function getCardRectAt(cardEl, x, y) {
-  // offsetWidth/Height are unscaled layout px; convert to canvas units
-  const w = cardEl.offsetWidth / canvasScale;
-  const h = cardEl.offsetHeight / canvasScale;
+  // offsetWidth/Height are already in canvas units (CSS transform doesn't affect them)
+  const w = cardEl.offsetWidth;
+  const h = cardEl.offsetHeight;
   return { left: x, top: y, right: x + w, bottom: y + h };
+
 }
 
 function rectsOverlap(a, b, gap = 0) {
@@ -222,7 +221,6 @@ function startPlacement(post, cardEl, mouseEvent) {
   placingCardEl = cardEl;
 
   placingCardEl.style.zIndex = '20';
-  placingCardEl.style.outline = '2px solid rgba(255,255,255,0.25)';
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -248,20 +246,19 @@ function updatePlacementPosition(e) {
 
   const pt = viewportPointToCanvasPoint(e.clientX, e.clientY);
 
-  // Recalculate offset every frame so it's always based on actual rendered size
-  const w = placingCardEl.offsetWidth  / canvasScale;
-  const h = placingCardEl.offsetHeight / canvasScale;
+  // offsetWidth/Height are in canvas units — no canvasScale division needed
+  const w = placingCardEl.offsetWidth;
+  const h = placingCardEl.offsetHeight;
   placeMouseOffsetX = w / 2;
   placeMouseOffsetY = h / 2;
 
   let x = pt.x - placeMouseOffsetX;
   let y = pt.y - placeMouseOffsetY;
-  // ... rest unchanged
 
-  const pw = placingCardEl.offsetWidth  / canvasScale;
-  const ph = placingCardEl.offsetHeight / canvasScale;
-  const pcx = x + pw / 2; // placing card center x
-  const pcy = y + ph / 2; // placing card center y
+  const pw = placingCardEl.offsetWidth;
+  const ph = placingCardEl.offsetHeight;
+  const pcx = x + pw / 2;
+  const pcy = y + ph / 2;
 
   let snapX = null, snapY = null;
   let bestDx = SNAP_ALIGN_THRESHOLD;
@@ -272,23 +269,19 @@ function updatePlacementPosition(e) {
     if (other === placingCardEl) continue;
     const ox  = parseFloat(other.style.left || '0');
     const oy  = parseFloat(other.style.top  || '0');
-    const ocx = ox + other.offsetWidth  / canvasScale / 2;
-    const ocy = oy + other.offsetHeight / canvasScale / 2;
+    const ocx = ox + other.offsetWidth  / 2;
+    const ocy = oy + other.offsetHeight / 2;
 
-    // Snap horizontal center-to-center (same vertical center line)
     const dx = Math.abs(pcx - ocx);
     if (dx < bestDx) {
       bestDx = dx;
-      // Adjust x so our center aligns with their center
-      snapX = ox + (other.offsetWidth - placingCardEl.offsetWidth) / canvasScale / 2;
+      snapX = ox + (other.offsetWidth - placingCardEl.offsetWidth) / 2;
     }
 
-    // Snap vertical center-to-center (same horizontal center line)
     const dy = Math.abs(pcy - ocy);
     if (dy < bestDy) {
       bestDy = dy;
-      // Adjust y so our center aligns with their center
-      snapY = oy + (other.offsetHeight - placingCardEl.offsetHeight) / canvasScale / 2;
+      snapY = oy + (other.offsetHeight - placingCardEl.offsetHeight) / 2;
     }
   }
 
@@ -419,6 +412,9 @@ function openPostForm() {
 }
 
 function closePostForm() {
+  postCoverImageInput.value = '';
+  postCoverFileName.textContent = 'choose cover image';
+  postCoverImageLabel.style.display = 'none';
   postFormOverlay.style.display = 'none';
   postTitle.value = '';
   postFileInput.value = '';
@@ -522,6 +518,14 @@ function openEditForm(post) {
   postFileName.textContent = post.file_name ? post.file_name : 'choose file';
 
   postDeleteBtn.style.display = 'inline-block'; // show in edit mode
+
+  const hasNonVisualFile = post.file_url && post.file_type !== 'image' && post.file_type !== 'video';
+if (hasNonVisualFile || post.cover_image_url) {
+  postCoverImageLabel.style.display = 'block';
+  postCoverFileName.textContent = post.cover_image_url
+    ? 'current cover (choose to replace)'
+    : 'choose cover image';
+}
   openPostForm();
 
 }
@@ -777,10 +781,11 @@ linkLayer.appendChild(path);
 // ============================================
 
 async function handlePostSubmit() {
-  const title = postTitle.value.trim();
-  const body = postText.value.trim();
-  const category = postCategory.value || null;
-  const file = postFileInput.files[0] || null;
+  const title     = postTitle.value.trim();
+  const body      = postText.value.trim();
+  const category  = postCategory.value || null;
+  const file      = postFileInput.files[0] || null;
+  const coverFile = postCoverImageInput.files[0] || null;
 
   if (!title && !file && !body) {
     alert('Add a title, text, or choose a file');
@@ -788,120 +793,96 @@ async function handlePostSubmit() {
   }
 
   try {
-    let fileURL = null;
-    let fileName = null;
-    let fileType = null;
+    let fileURL = null, fileName = null, fileType = null;
 
     if (file) {
       fileName = file.name;
       fileType = await getFileType(file);
-
       const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
-        .from('group1-posts')
-        .upload(filePath, file);
-
+        .from('group1-posts').upload(filePath, file);
       if (uploadError) throw uploadError;
-
       const { data: urlData } = supabase.storage
-        .from('group1-posts')
-        .getPublicUrl(filePath);
-
+        .from('group1-posts').getPublicUrl(filePath);
       fileURL = urlData.publicUrl;
     }
 
+    let coverImageURL = null;
+    if (coverFile) {
+      const coverPath = `${currentUser.id}/covers/${Date.now()}-${coverFile.name}`;
+      const { error: coverError } = await supabase.storage
+        .from('group1-posts').upload(coverPath, coverFile);
+      if (coverError) throw coverError;
+      const { data: coverUrlData } = supabase.storage
+        .from('group1-posts').getPublicUrl(coverPath);
+      coverImageURL = coverUrlData.publicUrl;
+    }
+
     const postRecord = {
-      title: title || null,
-      body: body || null,
-      category: category
+      title:    title    || null,
+      body:     body     || null,
+      category: category || null,
     };
 
     if (file) {
-      postRecord.file_url = fileURL;
+      postRecord.file_url  = fileURL;
       postRecord.file_name = fileName;
       postRecord.file_type = fileType;
     }
 
-    // EDIT
-    if (editingPostId) {
-      if (file && !await isVisualFile(file)) {
-        pendingPost = { ...postRecord, _isEdit: true, _editId: editingPostId };
-        closePostForm();
-        coverImageOverlay.style.display = 'flex';
-        return;
-      }
+    if (coverImageURL) {
+      postRecord.cover_image_url = coverImageURL;
+    }
 
+    // ── EDIT ──
+    if (editingPostId) {
       await updatePost(editingPostId, postRecord);
       closePostForm();
       await loadPosts();
-    await loadLinks();
-    renderLinks(lastLoadedPosts, lastLoadedLinks);
+      await loadLinks();
+      renderLinks(lastLoadedPosts, lastLoadedLinks);
       return;
     }
 
-    // CREATE
-    postRecord.user_id = currentUser.id;
+    // ── CREATE ──
+    postRecord.user_id  = currentUser.id;
     postRecord.group_id = 'group1';
 
     if (!file) {
-      postRecord.file_url = null;
+      postRecord.file_url  = null;
       postRecord.file_name = null;
       postRecord.file_type = null;
     }
 
-    if (file && !await isVisualFile(file)) {
-      pendingPost = postRecord;
-      closePostForm();
-      coverImageOverlay.style.display = 'flex';
-      return;
-    }
-
     const created = await savePost(postRecord);
 
-    // If user right-clicked a post to open the form, connect them
     if (pendingLinkPostId) {
       const a = String(pendingLinkPostId);
       const b = String(created.id);
       const a_post_id = a < b ? a : b;
       const b_post_id = a < b ? b : a;
-
       const { error: linkErr } = await supabase
         .from('post_links')
-        .insert([{
-          group_id: 'group1',
-          a_post_id,
-          b_post_id,
-          created_by: currentUser.id
-        }]);
-
-      if (linkErr) {
-        console.error('Failed to create link:', linkErr);
-      }
+        .insert([{ group_id: 'group1', a_post_id, b_post_id, created_by: currentUser.id }]);
+      if (linkErr) console.error('Failed to create link:', linkErr);
     }
 
     closePostForm();
-
-   await loadPosts();
-await loadLinks();
-renderLinks(lastLoadedPosts, lastLoadedLinks);
+    await loadPosts();
+    await loadLinks();
+    renderLinks(lastLoadedPosts, lastLoadedLinks);
 
     const createdEl = postCanvas.querySelector(`.post-card[data-post-id="${created.id}"]`);
     if (createdEl) {
       await waitForCardMedia(createdEl);
-      startPlacement(
-        created,
-        createdEl,
-        window.__lastMouseEventForPlacement || { clientX: 200, clientY: 200 }
-      );
-    } else {
-      console.warn('Created post card not found for placement', created.id);
+      startPlacement(created, createdEl,
+        window.__lastMouseEventForPlacement || { clientX: 200, clientY: 200 });
     }
   } catch (error) {
     console.error('Post submission failed:', error?.message || error);
     alert(`Post failed: ${error?.message || error}`);
   }
 }
-
 // ============================================
 // 8. COVER IMAGE PROMPT
 // ============================================
@@ -1183,6 +1164,7 @@ function trapScrollInside(el) {
   if (!el) return;
 
   el.addEventListener('wheel', (e) => {
+    if (isPlacing) return; // let canvas zoom handle it during placement
     const canScroll = el.scrollHeight > el.clientHeight;
     if (!canScroll) return;
 
@@ -1241,7 +1223,6 @@ function buildFilePreviewMarkup(post) {
   const ext = getFileExtension(post.file_name || '');
   const label = getFilePreviewLabel(post.file_name || '');
 
-  // Use post.file_type as source of truth, fall back to extension
   const isImage = post.file_type === 'image' || isImageExtension(ext);
   const isAudio = post.file_type === 'audio' || isAudioExtension(ext);
   const isVideo = (post.file_type === 'video' || isVideoExtension(ext)) && !isAudio;
@@ -1251,31 +1232,34 @@ function buildFilePreviewMarkup(post) {
   }
 
   if (isVideo && post.file_url) {
+    const label = getFilePreviewLabel(post.file_name || '');
     return `
       <div class="post-file-preview post-file-preview-video">
         <video class="post-preview-video" src="${post.file_url}" muted loop autoplay playsinline preload="metadata"></video>
-        <button class="post-preview-mute-btn" type="button" aria-label="toggle sound">🔇</button>
+        <div class="post-file-preview-label">${label}</div>
+        <button class="post-preview-mute-btn" type="button" aria-label="toggle sound">X</button>
       </div>
     `;
   }
 
   if (isAudio && post.file_url) {
-  const hasCover = !!post.cover_image_url;
-  return `
-    <div class="post-file-preview post-file-preview-audio ${hasCover ? 'has-cover' : ''}">
-      ${hasCover
-        ? `<img class="post-file-preview-cover" src="${post.cover_image_url}" alt="">`
-        : `<div class="post-file-preview-label">${label}</div>`
-      }
-      <button class="post-file-preview-play" type="button" aria-label="play audio">▶</button>
-      <audio class="post-preview-audio" src="${post.file_url}" preload="none"></audio>
-    </div>
-  `;
-}
-
-  if (post.file_url) {
+    const hasCover = !!post.cover_image_url;
     return `
-      <div class="post-file-preview post-file-preview-download">
+      <div class="post-file-preview post-file-preview-audio ${hasCover ? 'has-cover' : ''}">
+        ${hasCover ? `<img class="post-file-preview-cover" src="${post.cover_image_url}" alt="">` : ''}
+        <div class="post-file-preview-label">${label}</div>
+        <button class="post-file-preview-play" type="button" aria-label="play audio">></button>
+        <audio class="post-preview-audio" src="${post.file_url}" preload="none"></audio>
+      </div>
+    `;
+  }
+
+  // replace the existing `if (post.file_url)` (the download tile) with:
+  if (post.file_url) {
+    const hasCover = !!post.cover_image_url;
+    return `
+      <div class="post-file-preview post-file-preview-download${hasCover ? ' has-cover' : ''}">
+        ${hasCover ? `<img class="post-file-preview-cover" src="${post.cover_image_url}" alt="">` : ''}
         <div class="post-file-preview-label">${label}</div>
         <a class="post-file-preview-download-btn" href="${post.file_url}" download aria-label="download file">⤓</a>
       </div>
@@ -1388,11 +1372,9 @@ function buildPostCard(post, user) {
     <div class="post-title"><span class="post-title-track">${post.title}</span></div>
     <div class="post-body">${post.body}</div>
   `;
-
 } else if (hasVisual) {
   content.classList.add('post-layout-visual');
-
-  if (isVideoFile) {
+  if (isVideoFile || isOtherFile) {
     content.innerHTML = buildFilePreviewMarkup(post);
   } else {
     content.innerHTML = `<img class="post-image" src="${visualSrc}" alt="">`;
@@ -1467,12 +1449,12 @@ if (titleEl && titleTrackEl) {
   const muteBtn = content.querySelector('.post-preview-mute-btn');
 
   if (previewVideo && muteBtn) {
-    muteBtn.textContent = previewVideo.muted ? '🔇' : '🔊';
+    muteBtn.textContent = previewVideo.muted ? '▷' : '||';
 
     muteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       previewVideo.muted = !previewVideo.muted;
-      muteBtn.textContent = previewVideo.muted ? '🔇' : '🔊';
+      muteBtn.textContent = previewVideo.muted ? '▷' : '||';
     });
   }
 
@@ -1480,7 +1462,7 @@ if (titleEl && titleTrackEl) {
   const playBtn = content.querySelector('.post-file-preview-play');
 
   if (audioPreview && playBtn) {
-    playBtn.textContent = audioPreview.paused ? '▶' : '❚❚';
+    playBtn.textContent = audioPreview.paused ? '▷' : '||';
 
     playBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -1488,10 +1470,10 @@ if (titleEl && titleTrackEl) {
       try {
         if (audioPreview.paused) {
           await audioPreview.play();
-          playBtn.textContent = '❚❚';
+          playBtn.textContent = '||';
         } else {
           audioPreview.pause();
-          playBtn.textContent = '▶';
+          playBtn.textContent = '▷';
         }
       } catch (err) {
         console.error('Audio preview failed:', err);
@@ -1499,15 +1481,15 @@ if (titleEl && titleTrackEl) {
     });
 
     audioPreview.addEventListener('ended', () => {
-      playBtn.textContent = '▶';
+      playBtn.textContent = '▷';
     });
 
     audioPreview.addEventListener('pause', () => {
-      playBtn.textContent = '▶';
+      playBtn.textContent = '▷';
     });
 
     audioPreview.addEventListener('play', () => {
-      playBtn.textContent = '❚❚';
+      playBtn.textContent = '||';
     });
   }
 
@@ -1624,29 +1606,29 @@ function initializeEventListeners() {
 
   const canvasViewport = document.getElementById('canvasViewport');
 
-  // Pan by dragging empty space
+  // ── Middle-click pan (works in ALL modes including placement) ──
+  canvasViewport.addEventListener('mousedown', (e) => {
+    if (e.button !== 1) return;
+    e.preventDefault();
+    isPanning = true;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panStartOffsetX = canvasOffsetX;
+    panStartOffsetY = canvasOffsetY;
+  });
+
+  // ── Left-click pan (view mode only, disabled during placement) ──
   canvasViewport.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     if (isPlacing) return;
     if (e.target.closest('.post-card')) return;
-    if (e.target.closest('#linkLayer')) return; // ← add this line
+    if (e.target.closest('#linkLayer')) return;
 
     if (activeLinkTreeRootPostId) {
       activeLinkTreeRootPostId = null;
       loadPosts();
       return;
     }
-
-    // Middle mouse button pan
-    canvasViewport.addEventListener('mousedown', (e) => {
-      if (e.button !== 1) return;
-      e.preventDefault();
-      isPanning = true;
-      panStartX = e.clientX;
-      panStartY = e.clientY;
-      panStartOffsetX = canvasOffsetX;
-      panStartOffsetY = canvasOffsetY;
-    });
 
     isPanning = true;
     panStartX = e.clientX;
@@ -1689,6 +1671,9 @@ function initializeEventListeners() {
   // Right-click: single = open/close form, double = toggle edit mode
   (canvasViewport || mainPageContainer).addEventListener('contextmenu', (e) => {
     e.preventDefault();
+
+  // ignore right-click entirely during placement
+  if (isPlacing) return;
 
     const now = Date.now();
     const timeSince = now - lastRightClick;
@@ -1756,9 +1741,18 @@ function initializeEventListeners() {
     if (e.target === postFormOverlay) closePostForm();
   });
 
-  postFileInput.addEventListener('change', () => {
-    postFileName.textContent = postFileInput.files[0] ? postFileInput.files[0].name : 'choose file';
-  });
+  postFileInput.addEventListener('change', async () => {
+  const file = postFileInput.files[0];
+  postFileName.textContent = file ? file.name : 'choose file';
+
+  if (file && !await isVisualFile(file)) {
+    postCoverImageLabel.style.display = 'block';
+  } else {
+    postCoverImageLabel.style.display = 'none';
+    postCoverImageInput.value = '';
+    postCoverFileName.textContent = 'choose cover image';
+  }
+});
 
   postSubmitBtn.addEventListener('click', handlePostSubmit);
 
@@ -1784,12 +1778,6 @@ function initializeEventListeners() {
     }
   });
 
-  coverImageInput.addEventListener('change', () => {
-    coverImageFileName.textContent = coverImageInput.files[0] ? coverImageInput.files[0].name : 'choose image';
-  });
-
-  coverImageSubmitBtn.addEventListener('click', handleCoverImageSubmit);
-  coverImageSkipBtn.addEventListener('click', handleCoverImageSkip);
 
   logoutBtn?.addEventListener('click', async () => {
     const { error } = await supabase.auth.signOut();
@@ -1828,9 +1816,7 @@ function initializeEventListeners() {
       toggleEditMode();
     } else if (postFormOverlay?.style.display === 'flex') {
       closePostForm();
-    } else if (coverImageOverlay?.style.display === 'flex') {
-      closeCoverImagePrompt();
-    }
+    } 
   });
 }
 

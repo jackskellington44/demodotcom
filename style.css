@@ -548,6 +548,8 @@ input[type=number]::-webkit-outer-spin-button {
 /* --- VISUAL ONLY --- */
 .post-layout-visual .post-image {
     max-height: 400px;
+    border: 2px solid rgba(0, 0, 0, 0.28);
+
 }
 
 /* --- TITLE + VISUAL --- */
@@ -719,7 +721,26 @@ input[type=number]::-webkit-outer-spin-button {
     to   { transform: translateX(var(--marquee-end-pct, -50%)); }
 }
 
-/* cover image inside audio preview box */
+/* ============================================ */
+/* 11.4 FILE PREVIEW TILES                      */
+/* ============================================ */
+
+/* Base tile */
+.post-file-preview {
+  position: relative;
+  width: 300px;
+  height: 300px;
+  max-width: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+    border: 2px solid rgba(0, 0, 0, 0.28);
+
+}
+
+/* Cover image fills the tile */
 .post-file-preview-cover {
   position: absolute;
   inset: 0;
@@ -729,99 +750,105 @@ input[type=number]::-webkit-outer-spin-button {
   display: block;
 }
 
-/* when cover is present, play button always visible (not hover-only) */
-.post-file-preview-audio.has-cover .post-file-preview-play {
-  opacity: 1;
-  color: rgba(255, 255, 255, 0.85);
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+/* Video element fills the tile */
+.post-preview-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
-/* dim the cover slightly on hover to make play button pop */
-.post-file-preview-audio.has-cover:hover .post-file-preview-cover {
-  filter: brightness(0.75);
+/* File extension watermark — bottom-right, always visible, never interactive */
+.post-file-preview-label {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-size: 3.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 0.18s ease;
 }
 
-/* no-cover hover still works as before */
-.post-file-preview-audio:not(.has-cover):hover .post-file-preview-label {
+/* Hide label on hover so the action button is unobstructed */
+.post-file-preview-audio:hover .post-file-preview-label,
+.post-file-preview-download:hover .post-file-preview-label {
   opacity: 0;
 }
 
-.post-file-preview-audio:not(.has-cover):hover .post-file-preview-play {
+/* ---- Shared action button base ---- */
+/* Play, download, and mute buttons all share this base */
+.post-file-preview-play,
+.post-file-preview-download-btn,
+.post-preview-mute-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  background: transparent;
+  border: none;
+  color: rgba(0, 0, 0, 0.75);
+  font: inherit;
+  font-size: 3.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+/* Download button uses an <a> tag — keep it centered */
+.post-file-preview-download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Hover reveals ---- */
+.post-file-preview-audio:hover .post-file-preview-play {
   opacity: 1;
 }
 
-/* file preview base */
-.post-file-preview {
-    position: relative;
-    width: 300px;
-    height: 300px;
-    max-width: 100%;
-    flex-shrink: 0;
-    overflow: hidden;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.post-file-preview-download:hover .post-file-preview-download-btn {
+  opacity: 1;
 }
 
-.post-file-preview-label {
-    font-size: 4rem;
-    color: rgba(0, 0, 0, 0.55);
-    text-transform: uppercase;
-    transition: opacity 0.18s ease;
-    pointer-events: none;
-}
-
-.post-file-preview-play,
-.post-file-preview-download-btn,
-.post-preview-mute-btn {
-    position: absolute;
-    opacity: 0;
-    transition: opacity 0.18s ease;
-    background: transparent;
-    color: rgba(0, 0, 0, 0.7);
-    border: none;
-    padding: 0;
-    font: inherit;
-    cursor: pointer;
-    text-decoration: none;
-    line-height: 1;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.post-file-preview-play,
-.post-file-preview-download-btn,
-.post-preview-mute-btn {
-    font-size: 3.4rem;
-}
-
-/* nonvisual file tiles only */
-.post-file-preview-audio,
-.post-file-preview-download {
-    border: 2px solid rgba(0, 0, 0, 0.28);
-}
-
-.post-file-preview-audio:hover .post-file-preview-label,
-.post-file-preview-download:hover .post-file-preview-label {
-    opacity: 0;
-}
-
-.post-file-preview-audio:hover .post-file-preview-play,
-.post-file-preview-download:hover .post-file-preview-download-btn,
+/* Video: mute button appears on hover, centered */
 .post-file-preview-video:hover .post-preview-mute-btn {
-    opacity: 1;
+  opacity: 1;
 }
 
-/* video preview */
-.post-preview-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
+/* ---- Audio with cover image ---- */
+
+/* Play button always visible when cover is present (white so it reads on image) */
+.post-file-preview-audio.has-cover .post-file-preview-play {
+    position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  background: transparent;
+  border: none;
+  color: rgba(0, 0, 0, 0.75);
+  font: inherit;
+  font-size: 3.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+  pointer-events: auto;
 }
 
+
+/* Play button always visible when cover is present (white so it reads on image) */
+.post-file-preview-audio.has-cover:hover .post-file-preview-play {
+  opacity: 1;
+}
 /* ============================================ */
 /* 11.X TITLE HIERARCHY                         */
 /* ============================================ */
@@ -1034,6 +1061,11 @@ input[type=number]::-webkit-outer-spin-button {
     opacity: 1;
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
     color: rgba(255, 255, 255, 0.9);
+}
+
+/* Safety net: never show extension label on video tiles */
+.post-file-preview-video .post-file-preview-label {
+  display: none;
 }
 
 /* ============================================ */
