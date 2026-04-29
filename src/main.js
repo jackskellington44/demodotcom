@@ -199,29 +199,37 @@ function canPlaceCardAt(cardEl, x, y) {
   return true;
 }
 
+async function waitForCardMedia(cardEl) {
+  const images = [...cardEl.querySelectorAll('img')];
+  const videos = [...cardEl.querySelectorAll('video')];
+
+  const imagePromises = images.map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+  });
+
+  const videoPromises = videos.map(vid => {
+    if (vid.readyState >= 1) return Promise.resolve();
+    return new Promise(resolve => { vid.onloadedmetadata = resolve; vid.onerror = resolve; });
+  });
+
+  await Promise.all([...imagePromises, ...videoPromises]);
+}
+
 function startPlacement(post, cardEl, mouseEvent) {
   isPlacing = true;
   placingPost = post;
   placingCardEl = cardEl;
 
   placingCardEl.style.zIndex = '20';
-
-  // center under cursor (canvas units)
-  const w = placingCardEl.offsetWidth;
-  const h = placingCardEl.offsetHeight;
-  placeMouseOffsetX = (w / 2) / canvasScale;
-  placeMouseOffsetY = (h / 2) / canvasScale;
-
   placingCardEl.style.outline = '2px solid rgba(255,255,255,0.25)';
 
-  // Position immediately
-  updatePlacementPosition(mouseEvent);
-
-  // Reposition once after layout settles (images etc.)
   requestAnimationFrame(() => {
-    if (isPlacing && placingCardEl === cardEl) {
-      updatePlacementPosition(mouseEvent);
-    }
+    requestAnimationFrame(() => {
+      if (isPlacing && placingCardEl === cardEl) {
+        updatePlacementPosition(mouseEvent);
+      }
+    });
   });
 }
 
@@ -239,8 +247,16 @@ function updatePlacementPosition(e) {
   if (!isPlacing || !placingCardEl) return;
 
   const pt = viewportPointToCanvasPoint(e.clientX, e.clientY);
+
+  // Recalculate offset every frame so it's always based on actual rendered size
+  const w = placingCardEl.offsetWidth  / canvasScale;
+  const h = placingCardEl.offsetHeight / canvasScale;
+  placeMouseOffsetX = w / 2;
+  placeMouseOffsetY = h / 2;
+
   let x = pt.x - placeMouseOffsetX;
   let y = pt.y - placeMouseOffsetY;
+  // ... rest unchanged
 
   const pw = placingCardEl.offsetWidth  / canvasScale;
   const ph = placingCardEl.offsetHeight / canvasScale;
@@ -361,18 +377,38 @@ async function checkAuth() {
 // 2. FILE TYPE DETECTION
 // ============================================
 
-function getFileType(file) {
+async function getFileType(file) {
   const mime = file?.type || '';
   if (mime.startsWith('image/')) return 'image';
-  if (mime.startsWith('video/')) return 'video';
   if (mime.startsWith('audio/')) return 'audio';
+
+  if (mime.startsWith('video/')) {
+    // probe: audio-only mp4 has no video track (videoWidth stays 0)
+    const isAudioOnly = await new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const vid = document.createElement('video');
+      vid.preload = 'metadata';
+      vid.onloadedmetadata = () => {
+        URL.revokeObjectURL(url);
+        resolve(vid.videoWidth === 0);
+      };
+      vid.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(false);
+      };
+      vid.src = url;
+    });
+    return isAudioOnly ? 'audio' : 'video';
+  }
+
   return 'other';
 }
 
-function isVisualFile(file) {
-  const type = getFileType(file);
+async function isVisualFile(file) {
+  const type = await getFileType(file);
   return type === 'image' || type === 'video';
 }
+
 
 // ============================================
 // 3. OVERLAY OPEN/CLOSE HELPERS
@@ -758,7 +794,7 @@ async function handlePostSubmit() {
 
     if (file) {
       fileName = file.name;
-      fileType = getFileType(file);
+      fileType = await getFileType(file);
 
       const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
@@ -788,7 +824,7 @@ async function handlePostSubmit() {
 
     // EDIT
     if (editingPostId) {
-      if (file && !isVisualFile(file)) {
+      if (file && !await isVisualFile(file)) {
         pendingPost = { ...postRecord, _isEdit: true, _editId: editingPostId };
         closePostForm();
         coverImageOverlay.style.display = 'flex';
@@ -813,7 +849,7 @@ async function handlePostSubmit() {
       postRecord.file_type = null;
     }
 
-    if (file && !isVisualFile(file)) {
+    if (file && !await isVisualFile(file)) {
       pendingPost = postRecord;
       closePostForm();
       coverImageOverlay.style.display = 'flex';
@@ -851,6 +887,7 @@ renderLinks(lastLoadedPosts, lastLoadedLinks);
 
     const createdEl = postCanvas.querySelector(`.post-card[data-post-id="${created.id}"]`);
     if (createdEl) {
+      await waitForCardMedia(createdEl);
       startPlacement(
         created,
         createdEl,
@@ -873,38 +910,34 @@ async function handleCoverImageSubmit() {
   if (!pendingPost) return;
 
   const coverFile = coverImageInput.files[0];
-  if (!coverFile) {
-    alert('Choose an image or click skip');
-    return;
-  }
+  if (!coverFile) { alert('Choose an image or click skip'); return; }
 
   try {
     const filePath = `${currentUser.id}/covers/${Date.now()}-${coverFile.name}`;
-    const { error: uploadError } = await supabase.storage
-      .from('group1-posts')
-      .upload(filePath, coverFile);
-
+    const { error: uploadError } = await supabase.storage.from('group1-posts').upload(filePath, coverFile);
     if (uploadError) throw uploadError;
 
-    const { data: urlData } = supabase.storage
-      .from('group1-posts')
-      .getPublicUrl(filePath);
-
+    const { data: urlData } = supabase.storage.from('group1-posts').getPublicUrl(filePath);
     pendingPost.cover_image_url = urlData.publicUrl;
 
-    if (pendingPost._isEdit) {
-      const editId = pendingPost._editId;
-      delete pendingPost._isEdit;
-      delete pendingPost._editId;
-      await updatePost(editId, pendingPost);
-    } else {
-      await savePost(pendingPost);
-    }
+    const isEdit = pendingPost._isEdit;
+    const editId = pendingPost._editId;
+    if (isEdit) { delete pendingPost._isEdit; delete pendingPost._editId; }
+
+    const saved = isEdit ? await updatePost(editId, pendingPost) : await savePost(pendingPost);
 
     closeCoverImagePrompt();
-   await loadPosts();
-await loadLinks();
-renderLinks(lastLoadedPosts, lastLoadedLinks);
+    await loadPosts();
+    await loadLinks();
+    renderLinks(lastLoadedPosts, lastLoadedLinks);
+
+    if (!isEdit && saved) {
+      const createdEl = postCanvas.querySelector(`.post-card[data-post-id="${saved.id}"]`);
+      if (createdEl) {
+        await waitForCardMedia(createdEl);
+        startPlacement(saved, createdEl, window.__lastMouseEventForPlacement || { clientX: 200, clientY: 200 });
+      }
+    }
   } catch (error) {
     console.error('Cover image upload failed:', error.message);
     alert(`Cover image failed: ${error.message}`);
@@ -915,19 +948,24 @@ async function handleCoverImageSkip() {
   if (!pendingPost) return;
 
   try {
-    if (pendingPost._isEdit) {
-      const editId = pendingPost._editId;
-      delete pendingPost._isEdit;
-      delete pendingPost._editId;
-      await updatePost(editId, pendingPost);
-    } else {
-      await savePost(pendingPost);
-    }
+    const isEdit = pendingPost._isEdit;
+    const editId = pendingPost._editId;
+    if (isEdit) { delete pendingPost._isEdit; delete pendingPost._editId; }
+
+    const saved = isEdit ? await updatePost(editId, pendingPost) : await savePost(pendingPost);
 
     closeCoverImagePrompt();
-  await loadPosts();
-await loadLinks();
-renderLinks(lastLoadedPosts, lastLoadedLinks);
+    await loadPosts();
+    await loadLinks();
+    renderLinks(lastLoadedPosts, lastLoadedLinks);
+
+    if (!isEdit && saved) {
+      const createdEl = postCanvas.querySelector(`.post-card[data-post-id="${saved.id}"]`);
+      if (createdEl) {
+        await waitForCardMedia(createdEl);
+        startPlacement(saved, createdEl, window.__lastMouseEventForPlacement || { clientX: 200, clientY: 200 });
+      }
+    }
   } catch (error) {
     console.error('Post save failed:', error.message);
     alert(`Post failed: ${error.message}`);
@@ -1203,9 +1241,10 @@ function buildFilePreviewMarkup(post) {
   const ext = getFileExtension(post.file_name || '');
   const label = getFilePreviewLabel(post.file_name || '');
 
-  const isImage = isImageExtension(ext);
-  const isAudio = isAudioExtension(ext);
-  const isVideo = isVideoExtension(ext);
+  // Use post.file_type as source of truth, fall back to extension
+  const isImage = post.file_type === 'image' || isImageExtension(ext);
+  const isAudio = post.file_type === 'audio' || isAudioExtension(ext);
+  const isVideo = (post.file_type === 'video' || isVideoExtension(ext)) && !isAudio;
 
   if (isImage && post.file_url) {
     return `<img class="post-image" src="${post.file_url}" alt="">`;
@@ -1221,14 +1260,18 @@ function buildFilePreviewMarkup(post) {
   }
 
   if (isAudio && post.file_url) {
-    return `
-      <div class="post-file-preview post-file-preview-audio">
-        <div class="post-file-preview-label">${label}</div>
-        <button class="post-file-preview-play" type="button" aria-label="play audio">▶</button>
-        <audio class="post-preview-audio" src="${post.file_url}" preload="none"></audio>
-      </div>
-    `;
-  }
+  const hasCover = !!post.cover_image_url;
+  return `
+    <div class="post-file-preview post-file-preview-audio ${hasCover ? 'has-cover' : ''}">
+      ${hasCover
+        ? `<img class="post-file-preview-cover" src="${post.cover_image_url}" alt="">`
+        : `<div class="post-file-preview-label">${label}</div>`
+      }
+      <button class="post-file-preview-play" type="button" aria-label="play audio">▶</button>
+      <audio class="post-preview-audio" src="${post.file_url}" preload="none"></audio>
+    </div>
+  `;
+}
 
   if (post.file_url) {
     return `
@@ -1371,7 +1414,9 @@ function buildPostCard(post, user) {
 
   if (
   content.classList.contains('post-layout-title-visual-text') ||
-  content.classList.contains('post-layout-title-text')
+  content.classList.contains('post-layout-title-text') ||
+  content.classList.contains('post-layout-visual-text') ||
+  content.classList.contains('post-layout-text')  // ← add this
 ) {
   const bodyEl = content.querySelector('.post-body');
   if (bodyEl) {
