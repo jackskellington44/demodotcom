@@ -1,7 +1,3 @@
-// ============================================
-// SUPABASE IMPORTS
-// ============================================
-
 import { supabase } from './supabase-config.js';
 
 // ============================================
@@ -9,93 +5,111 @@ import { supabase } from './supabase-config.js';
 // ============================================
 
 const PFP_LIST = [
-    'pfp1.jpg', 'pfp2.jpg', 'pfp3.jpg', 'pfp4.jpg', 'pfp5.jpg',
-    'pfp6.jpg', 'pfp7.jpg', 'pfp8.jpg', 'pfp9.jpg', 'pfp10.jpg',
-    'pfp11.jpg', 'pfp12.jpg', 'pfp13.jpg', 'pfp14.jpg', 'pfp15.jpg',
-    'pfp16.jpg', 'pfp17.jpg', 'pfp18.jpg', 'pfp19.jpg'
+  'pfp1.webp',  'pfp2.webp',  'pfp3.webp',  'pfp4.webp',  'pfp5.webp',
+  'pfp6.webp',  'pfp7.webp',  'pfp8.webp',  'pfp9.webp',  'pfp10.webp',
+  'pfp11.webp', 'pfp12.webp', 'pfp13.webp', 'pfp14.webp', 'pfp15.webp',
+  'pfp16.webp', 'pfp17.webp', 'pfp18.webp', 'pfp19.webp'
 ];
 
 function loadPFPGrid() {
-    const pfpGrid = document.getElementById('pfpGrid');
-    
-    // Load all PFP images
-    PFP_LIST.forEach(pfp => {
-        const container = document.createElement('div');
-        container.className = 'pfp-container';
-        container.dataset.pfp = pfp;
-        
-        const img = document.createElement('img');
-        img.src = `${import.meta.env.BASE_URL}images/pfps/${pfp}`;
-        img.alt = pfp;
-        
-        container.appendChild(img);
-        pfpGrid.appendChild(container);
+  const pfpGrid = document.getElementById('pfpGrid');
+
+  PFP_LIST.forEach(pfpName => {
+    const container = document.createElement('div');
+    container.className = 'pfp-container';
+    container.dataset.pfp = pfpName;
+
+    const src = `${import.meta.env.BASE_URL}images/pfps/${pfpName}`;
+
+    const cvs = document.createElement('canvas');
+    cvs.width  = 200;
+    cvs.height = 200;
+    const ctx  = cvs.getContext('2d');
+
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = pfpName;
+
+    const drawFrame = () => {
+      try { ctx.drawImage(img, 0, 0, 200, 200); } catch(e) {}
+    };
+
+    if (img.complete && img.naturalWidth > 0) drawFrame();
+    else img.addEventListener('load', drawFrame, { once: true });
+
+    container.addEventListener('mouseenter', () => {
+      img.classList.add('pfp-playing');
     });
-    
-    // Add upload button as 20th item
-    const uploadContainer = document.createElement('div');
-    uploadContainer.className = 'upload-pfp-container';
-    uploadContainer.id = 'uploadPFPButton';
-    uploadContainer.innerHTML = '<span>+</span>';
-    
-    pfpGrid.appendChild(uploadContainer);
-    
-    console.log(`✓ Loaded ${PFP_LIST.length} PFP options + upload button`);
+
+    container.addEventListener('mouseleave', () => {
+      if (!container.classList.contains('selected')) {
+        drawFrame();
+        img.classList.remove('pfp-playing');
+      }
+    });
+
+    container.appendChild(cvs);
+    container.appendChild(img);
+    pfpGrid.appendChild(container);
+  });
+
+  // Upload button
+  const uploadContainer = document.createElement('div');
+  uploadContainer.className = 'upload-pfp-container';
+  uploadContainer.id = 'uploadPFPButton';
+  uploadContainer.innerHTML = '<span>+</span>';
+  pfpGrid.appendChild(uploadContainer);
 }
 
 // ============================================
 // DOM ELEMENT REFERENCES
 // ============================================
 
-const mainContainer = document.getElementById('mainContainer');
-const loginToggle = document.getElementById('loginToggle');
-const signupToggle = document.getElementById('signupToggle');
-const loginInputs = document.getElementById('loginInputs');
-const signupInputs = document.getElementById('signupInputs');
-const pfpSelection = document.getElementById('pfpSelection');
-const pfpUpload = document.getElementById('pfpUpload');
-
-const loginUsername = document.getElementById('loginUsername');
-const loginPassword = document.getElementById('loginPassword');
+const loginToggle    = document.getElementById('loginToggle');
+const signupToggle   = document.getElementById('signupToggle');
+const loginInputs    = document.getElementById('loginInputs');
+const signupInputs   = document.getElementById('signupInputs');
+const pfpSelection   = document.getElementById('pfpSelection');
+const pfpUpload      = document.getElementById('pfpUpload');
+const loginUsername  = document.getElementById('loginUsername');
+const loginPassword  = document.getElementById('loginPassword');
 const signupUsername = document.getElementById('signupUsername');
 const signupPassword = document.getElementById('signupPassword');
 
-let pfpContainers; // Will be set after PFPs load
-let uploadPFPButton; // Will be set after PFPs load
+let pfpContainers  = null;
+let uploadPFPButton = null;
 
 // ============================================
-// STATE VARIABLES
+// STATE
 // ============================================
 
-let selectedPFP = null;
-let uploadedPFP = null;
-
-
+let selectedPFP     = null;
+let uploadedPFPFile = null;
 
 // ============================================
 // 1. VIEW MANAGEMENT
 // ============================================
 
 function setActiveView(view) {
-    if (view === 'login') {
-        loginToggle.classList.add('active');
-        signupToggle.classList.remove('active');
-        loginInputs.style.display = 'flex';
-        signupInputs.style.display = 'none';
-        pfpSelection.style.display = 'none';
-    } else {
-        signupToggle.classList.add('active');
-        loginToggle.classList.remove('active');
-        loginInputs.style.display = 'none';
-        signupInputs.style.display = 'flex';
-        pfpSelection.style.display = 'flex';
-    }
+  if (view === 'login') {
+    loginToggle.classList.add('active');
+    signupToggle.classList.remove('active');
+    loginInputs.style.display  = 'flex';
+    signupInputs.style.display = 'none';
+    pfpSelection.style.display = 'none';
+  } else {
+    signupToggle.classList.add('active');
+    loginToggle.classList.remove('active');
+    loginInputs.style.display  = 'none';
+    signupInputs.style.display = 'flex';
+    pfpSelection.style.display = 'flex';
+  }
 }
 
 function initializeViews() {
-    loginToggle.addEventListener('click', () => setActiveView('login'));
-    signupToggle.addEventListener('click', () => setActiveView('signup'));
-    setActiveView('login');
+  loginToggle.addEventListener('click',  () => setActiveView('login'));
+  signupToggle.addEventListener('click', () => setActiveView('signup'));
+  setActiveView('login');
 }
 
 // ============================================
@@ -103,56 +117,60 @@ function initializeViews() {
 // ============================================
 
 function initializePFPSelection() {
-    pfpContainers = document.querySelectorAll('.pfp-container');
-    uploadPFPButton = document.getElementById('uploadPFPButton');
-    
-    pfpContainers.forEach(container => {
-        container.addEventListener('click', function() {
-            // Deselect all
-            pfpContainers.forEach(p => p.classList.remove('selected'));
-            uploadPFPButton.classList.remove('selected');
-            
-            // Select clicked PFP
-            this.classList.add('selected');
-            selectedPFP = this.dataset.pfp;
-            uploadedPFP = null;
-            
-            console.log('Selected PFP:', selectedPFP);
-        });
+  pfpContainers   = document.querySelectorAll('.pfp-container');
+  uploadPFPButton = document.getElementById('uploadPFPButton');
+
+  pfpContainers.forEach(container => {
+    container.addEventListener('click', function () {
+      // Deselect all — freeze previously selected
+      pfpContainers.forEach(p => {
+        if (p.classList.contains('selected')) {
+          const img = p.querySelector('img');
+          const cvs = p.querySelector('canvas');
+          if (img && cvs && img.naturalWidth > 0) {
+            try { cvs.getContext('2d').drawImage(img, 0, 0, 200, 200); } catch(e) {}
+            img.classList.remove('pfp-playing');
+          }
+        }
+        p.classList.remove('selected');
+      });
+      uploadPFPButton.classList.remove('selected');
+
+      this.classList.add('selected');
+      this.querySelector('img')?.classList.add('pfp-playing'); // keep playing when selected
+      selectedPFP     = this.dataset.pfp;
+      uploadedPFPFile = null;
     });
-    
-    console.log('✓ PFP selection initialized');
+  });
 }
 
 function initializePFPUpload() {
-    uploadPFPButton = document.getElementById('uploadPFPButton');
-    
-    uploadPFPButton.addEventListener('click', () => {
-        pfpUpload.click();
+  uploadPFPButton = document.getElementById('uploadPFPButton');
+
+  uploadPFPButton.addEventListener('click', () => pfpUpload.click());
+
+  pfpUpload.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Deselect grid items
+    pfpContainers.forEach(p => {
+      if (p.classList.contains('selected')) {
+        const img = p.querySelector('img');
+        const cvs = p.querySelector('canvas');
+        if (img && cvs && img.naturalWidth > 0) {
+          try { cvs.getContext('2d').drawImage(img, 0, 0, 200, 200); } catch(e) {}
+          img.classList.remove('pfp-playing');
+        }
+      }
+      p.classList.remove('selected');
     });
 
-    pfpUpload.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                // Deselect all PFPs
-                pfpContainers.forEach(p => p.classList.remove('selected'));
-                
-                // Mark upload as selected
-                uploadPFPButton.classList.add('selected');
-                uploadPFPButton.innerHTML = '<span>✓</span>';
-                
-                selectedPFP = null;
-                uploadedPFP = event.target.result;
-                
-                console.log('Uploaded PFP');
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-    
-    console.log('✓ PFP upload initialized');
+    uploadPFPButton.classList.add('selected');
+    uploadPFPButton.innerHTML = '<span>✓</span>';
+    selectedPFP     = null;
+    uploadedPFPFile = file;
+  });
 }
 
 // ============================================
@@ -160,260 +178,143 @@ function initializePFPUpload() {
 // ============================================
 
 function validateLoginForm() {
-    const username = loginUsername.value.trim();
-    const password = loginPassword.value;
-
-    if (!username) {
-        alert('Please enter a username');
-        return false;
-    }
-    if (!password) {
-        alert('Please enter a password');
-        return false;
-    }
-    return true;
+  if (!loginUsername.value.trim()) { alert('Please enter a username'); return false; }
+  if (!loginPassword.value)        { alert('Please enter a password'); return false; }
+  return true;
 }
 
 function validateSignupForm() {
-    const username = signupUsername.value.trim();
-    const password = signupPassword.value;
-
-    if (!username) {
-        alert('Please enter a username');
-        return false;
-    }
-    if (!password) {
-        alert('Please enter a password');
-        return false;
-    }
-    if (password.length < 6) {
-        alert('Password must be at least 6 characters');
-        return false;
-    }
-    if (!selectedPFP && !uploadedPFP) {
-        alert('Please select or upload a profile picture');
-        return false;
-    }
-    return true;
+  const u = signupUsername.value.trim();
+  if (!u || u.length > 12)    { alert('Username must be 1–12 characters'); return false; }
+  if (!signupPassword.value)  { alert('Please enter a password'); return false; }
+  if (signupPassword.value.length < 6) { alert('Password must be at least 6 characters'); return false; }
+  if (!selectedPFP && !uploadedPFPFile) { alert('Please select or upload a profile picture'); return false; }
+  return true;
 }
 
 // ============================================
-// 4. SUPABASE AUTH - LOGIN
+// 4. LOGIN
 // ============================================
 
 async function handleLogin() {
-    if (!validateLoginForm()) return;
+  if (!validateLoginForm()) return;
+  const username = loginUsername.value.trim();
+  const password = loginPassword.value;
 
-    const username = loginUsername.value.trim();
-    const password = loginPassword.value;
+  try {
+    // Look up internal email by username
+    const { data: userData, error: lookupErr } = await supabase
+      .from('users')
+      .select('email')
+      .eq('username', username)
+      .maybeSingle();
 
-    try {
-        // Supabase Auth uses email
-        const email = `${username}@demodotcom.com`;
-        
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
-        
-        if (error) throw error;
-        
-        console.log('Login successful:', data.user.id);
-        window.location.href = './main.html';
-        
-        // TODO: Redirect to dashboard
-    } catch (error) {
-        console.error('Login error:', error.message);
-        alert(`Login failed: ${error.message}`);
-    }
+    if (lookupErr || !userData) throw new Error('Username not found');
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: userData.email,
+      password
+    });
+    if (error) throw error;
+
+    window.location.href = './main.html';
+  } catch (error) {
+    console.error('Login error:', error.message);
+    alert(`Login failed: ${error.message}`);
+  }
 }
 
 // ============================================
-// 5. SUPABASE AUTH - SIGNUP
+// 5. SIGNUP
 // ============================================
 
 async function handleSignup() {
-    if (!validateSignupForm()) return;
+  if (!validateSignupForm()) return;
+  const username = signupUsername.value.trim();
+  const password = signupPassword.value;
 
-    const username = signupUsername.value.trim();
-    const password = signupPassword.value;
-    const pfp = selectedPFP || 'uploaded';
+  try {
+    // Check uniqueness
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+    if (existing) { alert('Username already taken'); return; }
 
-    try {
-        // Create user in Supabase Auth
-        const email = `${username}@demodotcom.com`;
-        
-        const { data, error } = await supabase.auth.signUp({
-            email: email,
-            password: password
-        });
-        
-        if (error) throw error;
-        
-        const userId = data.user.id;
-        console.log('User created:', userId);
+    // Generate opaque internal email (never shown to user)
+    const internalEmail = `u_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@grp.io`;
 
-        // Sign in immediately after signup to get a valid session
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
+    const { data, error } = await supabase.auth.signUp({ email: internalEmail, password });
+    if (error) throw error;
+    const userId = data.user.id;
 
-        if (signInError) {
-            console.error('Auto sign-in failed:', signInError);
-            throw signInError;
-        }
+    // Sign in immediately
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: internalEmail, password });
+    if (signInErr) throw signInErr;
 
-        console.log('Auto signed in with session');
-        
-        // Upload PFP if custom image
-        let pfpURL = null;
-        if (uploadedPFP) {
-            console.log('Starting PFP upload...');
-            pfpURL = await uploadPFPToStorage(userId, uploadedPFP);
-            console.log('PFP upload complete, URL:', pfpURL);
-        }
-        
-        // Save user data to Supabase database
-        await saveUserToDatabase(userId, username, pfp, pfpURL);
-        console.log('User saved to database');
-
-        // Clear form
-        signupUsername.value = '';
-        signupPassword.value = '';
-        selectedPFP = null;
-        uploadedPFP = null;
-
-        // Everything done, NOW redirect
-        console.log('ALL DONE - redirecting');
-        window.location.href = './main.html';
-
-    } catch (error) {
-        console.error('Signup error:', error.message);
-        alert(`Signup failed: ${error.message}`);
+    // Upload custom pfp if provided
+    let pfpURL = null;
+    if (uploadedPFPFile) {
+      const ext  = uploadedPFPFile.name.split('.').pop() || 'webp';
+      const path = `${userId}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('group1-pfps')
+        .upload(path, uploadedPFPFile);
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from('group1-pfps').getPublicUrl(path);
+      pfpURL = urlData.publicUrl;
     }
+
+    // Save user record
+    const { error: dbErr } = await supabase.from('users').insert([{
+      id:         userId,
+      username,
+      email:      internalEmail,
+      pfp:        selectedPFP  || null,
+      pfp_url:    pfpURL       || null,
+      created_at: new Date(),
+      updated_at: new Date()
+    }]);
+    if (dbErr) throw dbErr;
+
+    window.location.href = './main.html';
+  } catch (error) {
+    console.error('Signup error:', error.message);
+    alert(`Signup failed: ${error.message}`);
+  }
 }
 
 // ============================================
-// 6. SUPABASE STORAGE - UPLOAD PFP
-// ============================================
-
-async function uploadPFPToStorage(userId, imageData) {
-    try {
-        const response = await fetch(imageData);
-        const blob = await response.blob();
-        const file = new File([blob], `${userId}.jpg`, { type: 'image/jpeg' });
-        
-        console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
-        
-        // Get current user/session for debugging
-        const { data: { user } } = await supabase.auth.getUser();
-        console.log('Current user:', user?.id);
-        
-        // Upload file to Supabase Storage
-        const { data, error } = await supabase.storage
-            .from('group1-pfps')
-            .upload(`${userId}.jpg`, file);
-        
-        if (error) {
-            console.error('Full storage error:', JSON.stringify(error));
-            throw error;
-        }
-        
-        console.log('✓ PFP uploaded to Storage');
-        
-        const { data: urlData } = supabase.storage
-            .from('group1-pfps')
-            .getPublicUrl(`${userId}.jpg`);
-        
-        console.log('✓ PFP URL:', urlData.publicUrl);
-        return urlData.publicUrl;
-    } catch (error) {
-        console.error('PFP upload error:', error);
-        throw error;
-    }
-}
-
-// ============================================
-// 7. SUPABASE DATABASE - SAVE USER DATA
-// ============================================
-
-async function saveUserToDatabase(userId, username, pfp, pfpURL) {
-    try {
-        console.log('Attempting to insert:', {
-            id: userId,
-            username: username,
-            email: `${username}@demodotcom.com`,
-            pfp: pfp,
-            pfp_url: pfpURL
-        });
-
-        const { data, error } = await supabase
-            .from('users')
-            .insert([
-                {
-                    id: userId,
-                    username: username,
-                    email: `${username}@demodotcom.com`,
-                    pfp: pfp,
-                    pfp_url: pfpURL,
-                    created_at: new Date(),
-                    updated_at: new Date()
-                }
-            ]);
-        
-        if (error) {
-            console.error('Insert error details:', error);
-            throw error;
-        }
-        
-        console.log('✓ User saved to database');
-    } catch (error) {
-        console.error('Database error:', error);
-        throw error;
-    }
-}
-
-// ============================================
-// 8. FORM SUBMISSION
+// 6. ENTER KEY
 // ============================================
 
 function handleEnterKey(e) {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-
-    if (loginToggle.classList.contains('active')) {
-        handleLogin();
-    } else {
-        handleSignup();
-    }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (loginToggle.classList.contains('active')) handleLogin();
+  else handleSignup();
 }
 
 function initializeFormSubmission() {
-    document.querySelectorAll('input').forEach(input => {
-        input.addEventListener('keypress', handleEnterKey);
-    });
-    
-    console.log('✓ Form submission initialized');
+  document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('keypress', handleEnterKey);
+  });
 }
 
 // ============================================
-// 9. INITIALIZATION
+// 7. INIT
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('✓ DOM loaded');
-
-    document.documentElement.style.setProperty(
-    "--bg-url",
+  document.documentElement.style.setProperty(
+    '--bg-url',
     `url(${import.meta.env.BASE_URL}images/background.jpg)`
-    );
-    
-    loadPFPGrid();
-    initializeViews();
-    initializePFPSelection();
-    initializePFPUpload();
-    initializeFormSubmission();
-    
-    console.log('✓ All systems initialized');
+  );
+
+  loadPFPGrid();
+  initializeViews();
+  initializePFPSelection();
+  initializePFPUpload();
+  initializeFormSubmission();
 });

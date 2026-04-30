@@ -79,6 +79,47 @@
         </div>
         </div>
 
+        <!-- Notification Panel -->
+        <div id="notifBar" class="notif-bar"></div>
+        <div id="notifPanel" class="notif-panel">
+        <div class="notif-panel-inner">
+            <div class="notif-list" id="notifList"></div>
+        </div>
+        </div>
+
+        <!-- Profile Modal -->
+        <div id="profileOverlay" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+        <div id="profileModal" class="profile-modal">
+            <span id="profileClose" class="profile-close">×</span>
+
+            <div class="profile-cover-wrap" id="profileCoverWrap">
+            <img id="profileCoverImg" class="profile-cover-img" src="" alt="" style="display:none;">
+            <div class="profile-cover-placeholder" id="profileCoverPlaceholder"></div>
+            <div class="profile-upload-overlay" id="profileCoverOverlay" style="display:none;">
+                <label for="profileCoverInput">+</label>
+            </div>
+            </div>
+
+            <div class="profile-identity-row">
+            <div class="profile-pfp-wrap">
+                <div id="profilePfpWidget"></div>
+                <div class="profile-upload-overlay" id="profilePfpOverlay" style="display:none;">
+                <label for="profilePfpInput">+</label>
+                </div>
+            </div>
+            <span id="profileUsername" class="profile-username"></span>
+            <input id="profileUsernameInput" class="profile-username-input" maxlength="12" style="display:none;" autocomplete="off">
+            </div>
+
+            <button id="profileSaveBtn" class="profile-save-btn" style="display:none;">save</button>
+            <div id="profilePostsList" class="profile-posts-list"></div>
+        </div>
+        </div>
+
+        <!-- Hidden file inputs for profile editing -->
+        <input type="file" id="profileCoverInput" accept="image/*" style="display:none;">
+        <input type="file" id="profilePfpInput" accept="image/webp,image/gif,image/*" style="display:none;">
+
     <script type="module" src="/src/main.js"></script>
 </body>
 </html>

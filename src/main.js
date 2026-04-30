@@ -49,6 +49,15 @@ const commentsList = document.getElementById('commentsList');
 const commentInput = document.getElementById('commentInput');
 const commentSubmitBtn = document.getElementById('commentSubmitBtn');
 
+// Notification panel
+const notifBar   = document.getElementById('notifBar');
+const notifPanel = document.getElementById('notifPanel');
+const notifList  = document.getElementById('notifList');
+
+// Profile Modal 
+
+const profileOverlay = document.getElementById('profileOverlay');
+
 // ============================================
 // STATE VARIABLES
 // ============================================
@@ -83,6 +92,12 @@ let lastLoadedLinks = [];
 
 let activeLinkTreeRootPostId = null; // any post id inside the selected connected component
 
+// Profile modal state
+let profileEditMode       = false;
+let newProfileCoverFile   = null;
+let newProfilePfpFile     = null;
+let currentProfileUserId  = null;
+
 function buildAdjacency(links) {
   const adj = new Map(); // postId -> Set(postId)
   for (const l of (links || [])) {
@@ -116,6 +131,8 @@ function getConnectedComponent(startId, links) {
 
   return seen;
 }
+
+
 
 // ============================================
 // CANVAS PAN + PLACEMENT STATE
@@ -474,17 +491,14 @@ function initFileNav(files) {
 }
 
 // (modal functions unchanged)
-function openPostDetailModal(post, user) {
+async function openPostDetailModal(post, user) {
   activePostForModal = post;
 
   const titleHtml = post.title ? `<div class="post-title"><span class="post-title-track">${post.title}</span></div>` : '';
-  const bodyHtml = post.body ? `<div class="post-body">${post.body}</div>` : '';
+  const bodyHtml  = post.body  ? `<div class="post-body">${post.body}</div>` : '';
 
   let visualHtml = '';
-
   if (post.files && post.files.length > 1) {
-    // Multi-file navigator
-    const filesJson = JSON.stringify(post.files).replace(/'/g, '&#39;');
     visualHtml = `
       <div class="post-detail-file-nav" id="fileNav">
         <button class="file-nav-btn" id="fileNavPrev">‹</button>
@@ -493,7 +507,6 @@ function openPostDetailModal(post, user) {
       </div>
       <div class="file-nav-label" id="fileNavLabel"></div>
     `;
-    // Inject files data after modal is shown — handled below
     setTimeout(() => initFileNav(post.files), 0);
   } else if (post.file_type === 'image' && post.file_url) {
     visualHtml = `<img class="post-image" src="${post.file_url}" alt="">`;
@@ -527,6 +540,79 @@ function openPostDetailModal(post, user) {
 
   postDetailOverlay.style.display = 'flex';
   loadCommentsForPost(post.id);
+
+  // Load + render connected post tabs
+  loadConnectedTabs(post);
+}
+
+async function loadConnectedTabs(post) {
+  // Remove any existing tabs
+  const existing = postDetailModal.querySelector('.post-detail-tabs');
+  if (existing) existing.remove();
+
+  const { data: links, error } = await supabase
+    .from('post_links')
+    .select('a_post_id, b_post_id')
+    .or(`a_post_id.eq.${post.id},b_post_id.eq.${post.id}`)
+    .eq('group_id', 'group1');
+
+  if (error || !links || links.length === 0) return;
+
+  // Get the IDs of all connected posts (the OTHER end of each link)
+  const connectedIds = links.map(l =>
+    String(l.a_post_id) === String(post.id) ? l.b_post_id : l.a_post_id
+  );
+
+  const { data: connectedPosts, error: postsErr } = await supabase
+    .from('posts')
+    .select('id, title, body, user_id')
+    .in('id', connectedIds);
+
+  if (postsErr || !connectedPosts || connectedPosts.length === 0) return;
+
+  // Fetch usernames
+  const userIds = [...new Set(connectedPosts.map(p => p.user_id).filter(Boolean))];
+  let userMap = {};
+  if (userIds.length > 0) {
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, username')
+      .in('id', userIds);
+    (users || []).forEach(u => { userMap[u.id] = u.username; });
+  }
+
+  // Build tab bar
+  const tabBar = document.createElement('div');
+  tabBar.className = 'post-detail-tabs';
+
+  connectedPosts.forEach(cp => {
+    const label = cp.title || cp.body?.slice(0, 30) || userMap[cp.user_id] || 'post';
+    const tab = document.createElement('button');
+    tab.className = 'post-detail-tab';
+    tab.textContent = label;
+    tab.title = label;
+
+    tab.addEventListener('click', async () => {
+      const { data: fullPost } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', cp.id)
+        .single();
+
+      const { data: fullUser } = await supabase
+        .from('users')
+        .select('id, username, pfp, pfp_url')
+        .eq('id', cp.user_id)
+        .single();
+
+      if (fullPost) openPostDetailModal(fullPost, fullUser || {});
+    });
+
+    tabBar.appendChild(tab);
+  });
+
+  // Insert above the content
+  postDetailModal.insertBefore(tabBar, postDetailContent);
 }
 
 function closePostDetailModal() {
@@ -823,6 +909,261 @@ path.style.pointerEvents = 'none';
 linkLayer.appendChild(path);
 }
   }
+
+// ============================================
+// 6B. NOTIFICATIONS
+// ============================================
+
+const MAX_NOTIFICATIONS = 40;
+
+async function loadNotifications() {
+  if (!currentUser) return;
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id, type, post_id, actor_user_id, created_at')
+    .eq('recipient_user_id', currentUser.id)
+    .eq('group_id', 'group1')
+    .order('created_at', { ascending: false })
+    .limit(MAX_NOTIFICATIONS);
+
+  if (error) {
+    console.error('Failed to load notifications:', error);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    notifList.innerHTML = `<div class="notif-empty">no notifications</div>`;
+    return;
+  }
+
+  // Fetch actor usernames
+  const actorIds = [...new Set(data.map(n => n.actor_user_id).filter(Boolean))];
+  let actorMap = {};
+  if (actorIds.length > 0) {
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, username')
+      .in('id', actorIds);
+    (users || []).forEach(u => { actorMap[u.id] = u.username; });
+  }
+
+  notifList.innerHTML = '';
+
+  data.forEach(n => {
+    const actor = actorMap[n.actor_user_id] || 'someone';
+    const text  = n.type === 'comment'
+      ? 'commented on your post'
+      : 'connected a thread to your post';
+
+    const item = document.createElement('div');
+    item.className = 'notif-item';
+    item.innerHTML = `
+      <div class="notif-actor">${actor}</div>
+      <div class="notif-text">${text}</div>
+    `;
+
+    item.addEventListener('click', async () => {
+      // Load the related post and open its detail modal
+      const { data: post, error: postErr } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', n.post_id)
+        .single();
+
+      if (postErr || !post) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, username, pfp, pfp_url')
+        .eq('id', post.user_id)
+        .single();
+
+      openPostDetailModal(post, userData || {});
+    });
+
+    notifList.appendChild(item);
+  });
+}
+
+
+// ============================================
+// 6C. PROFILE MODAL
+// ============================================
+
+// ============================================
+// 6C. PROFILE MODAL
+// ============================================
+
+async function openProfileModal(userId) {
+  if (!userId) return;
+  currentProfileUserId = userId;
+  profileEditMode     = false;
+  newProfileCoverFile = null;
+  newProfilePfpFile   = null;
+
+  const { data: user, error } = await supabase
+    .from('users').select('*').eq('id', userId).single();
+  if (error || !user) return;
+
+  const isOwnProfile = currentUser && userId === currentUser.id;
+
+  // ── Cover ──
+  const coverImg         = document.getElementById('profileCoverImg');
+  const coverPlaceholder = document.getElementById('profileCoverPlaceholder');
+  const coverOverlay     = document.getElementById('profileCoverOverlay');
+
+  if (user.cover_image_url) {
+    coverImg.src           = user.cover_image_url;
+    coverImg.style.display = 'block';
+    coverPlaceholder.style.display = 'none';
+  } else {
+    coverImg.style.display         = 'none';
+    coverPlaceholder.style.display = 'block';
+  }
+  coverOverlay.style.display = 'none';
+
+  // ── PFP ──
+  const pfpWidget  = document.getElementById('profilePfpWidget');
+  const pfpOverlay = document.getElementById('profilePfpOverlay');
+  pfpWidget.innerHTML = '';
+  const pfpFallback = './images/pfps/default.webp';
+  const pfpSrc = user.pfp_url || (user.pfp ? `./images/pfps/${user.pfp}` : pfpFallback);
+  const img = document.createElement('img');
+  img.src = pfpSrc;
+  img.style.cssText = 'width:60px;height:60px;object-fit:cover;display:block;';
+  pfpWidget.appendChild(img);
+  pfpOverlay.style.display = 'none';
+
+  // ── Username ──
+  const usernameSpan  = document.getElementById('profileUsername');
+  const usernameInput = document.getElementById('profileUsernameInput');
+  usernameSpan.textContent  = user.username;
+  usernameSpan.style.display  = 'inline';
+  usernameInput.value         = user.username;
+  usernameInput.style.display = 'none';
+
+  // ── Save btn ──
+  document.getElementById('profileSaveBtn').style.display = 'none';
+
+  // ── Posts ──
+  const postsList = document.getElementById('profilePostsList');
+  postsList.innerHTML = '';
+
+  const { data: posts } = await supabase
+    .from('posts')
+    .select('id, title, body, file_name')
+    .eq('user_id', userId)
+    .eq('group_id', 'group1')
+    .order('created_at', { ascending: false });
+
+  if (posts && posts.length > 0) {
+    posts.forEach(p => {
+      const label = p.title || p.body?.slice(0, 60) || p.file_name || 'untitled';
+      const item = document.createElement('div');
+      item.className    = 'profile-post-item';
+      item.textContent  = label;
+
+      item.addEventListener('click', async () => {
+        const { data: fullPost } = await supabase
+          .from('posts').select('*').eq('id', p.id).single();
+        if (fullPost) openPostDetailModal(fullPost, user);
+      });
+
+      postsList.appendChild(item);
+    });
+  } else {
+    postsList.innerHTML = '<div style="color:rgba(255,255,255,0.2);font-size:0.8rem;padding:10px 0;">no posts yet</div>';
+  }
+
+  // ── Edit mode (own profile only, triggered by right-click) ──
+  const profileModal = document.getElementById('profileModal');
+
+  profileModal.oncontextmenu = (e) => {
+    if (!isOwnProfile) return;
+    e.preventDefault();
+    profileEditMode = !profileEditMode;
+
+    coverOverlay.style.display     = profileEditMode ? 'flex'   : 'none';
+    pfpOverlay.style.display       = profileEditMode ? 'flex'   : 'none';
+    usernameSpan.style.display     = profileEditMode ? 'none'   : 'inline';
+    usernameInput.style.display    = profileEditMode ? 'inline' : 'none';
+    document.getElementById('profileSaveBtn').style.display = profileEditMode ? 'inline-block' : 'none';
+  };
+
+  profileOverlay.style.display = 'flex';
+}
+
+function closeProfileModal() {
+  profileOverlay.style.display = 'none';
+  profileEditMode     = false;
+  newProfileCoverFile = null;
+  newProfilePfpFile   = null;
+  currentProfileUserId = null;
+}
+
+async function saveProfileChanges() {
+  if (!currentProfileUserId) return;
+
+  const updates = {};
+
+  // Username
+  const usernameInput = document.getElementById('profileUsernameInput');
+  const newUsername = usernameInput.value.trim();
+  if (!newUsername || newUsername.length > 12) {
+    alert('Username must be 1–12 characters'); return;
+  }
+
+  // Check uniqueness only if changed
+  const { data: currentUserRow } = await supabase
+    .from('users').select('username').eq('id', currentProfileUserId).single();
+  if (newUsername !== currentUserRow?.username) {
+    const { data: taken } = await supabase
+      .from('users').select('id').eq('username', newUsername).maybeSingle();
+    if (taken) { alert('Username already taken'); return; }
+    updates.username = newUsername;
+  }
+
+  // New cover image
+  if (newProfileCoverFile) {
+    const path = `covers/${currentProfileUserId}-${Date.now()}.${newProfileCoverFile.name.split('.').pop()}`;
+    const { error: upErr } = await supabase.storage
+      .from('group1-pfps').upload(path, newProfileCoverFile);
+    if (upErr) { alert('Cover upload failed'); return; }
+    const { data: urlData } = supabase.storage.from('group1-pfps').getPublicUrl(path);
+    updates.cover_image_url = urlData.publicUrl;
+  }
+
+  // New pfp
+  if (newProfilePfpFile) {
+    const ext  = newProfilePfpFile.name.split('.').pop() || 'webp';
+    const path = `${currentProfileUserId}-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from('group1-pfps').upload(path, newProfilePfpFile);
+    if (upErr) { alert('PFP upload failed'); return; }
+    const { data: urlData } = supabase.storage.from('group1-pfps').getPublicUrl(path);
+    updates.pfp_url = urlData.publicUrl;
+    updates.pfp     = null;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    closeProfileModal(); return;
+  }
+
+  updates.updated_at = new Date();
+  const { error } = await supabase
+    .from('users').update(updates).eq('id', currentProfileUserId);
+  if (error) { alert(`Save failed: ${error.message}`); return; }
+
+  // Refresh current user data if it's their own profile
+  if (currentProfileUserId === currentUser?.id) {
+    currentUserData = { ...currentUserData, ...updates };
+  }
+
+  closeProfileModal();
+  await loadPosts();
+  renderLinks(lastLoadedPosts, lastLoadedLinks);
+}
 // ============================================
 // 7. POST SUBMISSION
 // ============================================
@@ -1538,12 +1879,12 @@ if (titleEl && titleTrackEl) {
   const muteBtn = content.querySelector('.post-preview-mute-btn');
 
   if (previewVideo && muteBtn) {
-    muteBtn.textContent = previewVideo.muted ? '▷' : '||';
+    muteBtn.textContent = previewVideo.muted ? '▷' : '☐';
 
     muteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       previewVideo.muted = !previewVideo.muted;
-      muteBtn.textContent = previewVideo.muted ? '▷' : '||';
+      muteBtn.textContent = previewVideo.muted ? '▷' : '☐';
     });
   }
 
@@ -1551,7 +1892,7 @@ if (titleEl && titleTrackEl) {
   const playBtn = content.querySelector('.post-file-preview-play');
 
   if (audioPreview && playBtn) {
-    playBtn.textContent = audioPreview.paused ? '▷' : '||';
+    playBtn.textContent = audioPreview.paused ? '▷' : '☐';
 
     playBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -1559,7 +1900,7 @@ if (titleEl && titleTrackEl) {
       try {
         if (audioPreview.paused) {
           await audioPreview.play();
-          playBtn.textContent = '||';
+          playBtn.textContent = '☐';
         } else {
           audioPreview.pause();
           playBtn.textContent = '▷';
@@ -1578,7 +1919,7 @@ if (titleEl && titleTrackEl) {
     });
 
     audioPreview.addEventListener('play', () => {
-      playBtn.textContent = '||';
+      playBtn.textContent = '☐';
     });
   }
 
@@ -1593,7 +1934,7 @@ if (titleEl && titleTrackEl) {
 
     if (editMode) {
     footer.innerHTML = `
-      <img class="post-footer-pfp" src="${pfpSrc}" alt="">
+      <img class="post-footer-pfp" src="${pfpSrc}" alt="" data-user-id="${post.user_id}" style="cursor:pointer;">
       <span class="post-footer-action post-footer-edit">edit</span>
       <span class="post-footer-action post-footer-reposition">⟴</span>
       <span class="post-footer-category"><span class="post-footer-category-track">${post.category || 'none'}</span></span>
@@ -1613,12 +1954,47 @@ if (titleEl && titleTrackEl) {
       e.stopPropagation();
       startPlacement(post, card, window.__lastMouseEventForPlacement || { clientX: 200, clientY: 200 });
     });
-  } else {
+
+    // Add this after BOTH footer.innerHTML assignments (editMode branch and normal branch):
+    footer.querySelector('.post-footer-pfp');
+    if (pfpEl) {
+      let pfpPressTimer = null;
+      pfpEl.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        pfpPressTimer = setTimeout(() => {
+          pfpPressTimer = null;
+          openProfileModal(post.user_id);
+        }, 400);
+      });
+      pfpEl.addEventListener('mouseup',    () => { clearTimeout(pfpPressTimer); pfpPressTimer = null; });
+      pfpEl.addEventListener('mouseleave', () => { clearTimeout(pfpPressTimer); pfpPressTimer = null; });
+    };
+
+  } 
+  
+  else {
     footer.innerHTML = `
-    <img class="post-footer-pfp" src="${pfpSrc}" alt="">
+    <img class="post-footer-pfp" src="${pfpSrc}" alt="" data-user-id="${post.user_id}" style="cursor:pointer;">
     <span class="post-footer-username post-footer-filter-btn">${user?.username || 'unknown'}</span>
     <span class="post-footer-category post-footer-filter-btn"><span class="post-footer-category-track">${post.category || 'none'}</span></span>
   `;
+
+    // Replace the single-click pfp listener in BOTH branches with this:
+const pfpEl = footer.querySelector('.post-footer-pfp');
+if (pfpEl) {
+  let pfpPressTimer = null;
+  pfpEl.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    pfpPressTimer = setTimeout(() => {
+      pfpPressTimer = null;
+      openProfileModal(post.user_id);
+    }, 400);
+  });
+  pfpEl.addEventListener('mouseup',    () => { clearTimeout(pfpPressTimer); pfpPressTimer = null; });
+  pfpEl.addEventListener('mouseleave', () => { clearTimeout(pfpPressTimer); pfpPressTimer = null; });
+}
 
     const usernameEl = footer.querySelector('.post-footer-username');
     if (usernameEl && user?.id) {
@@ -1672,14 +2048,32 @@ if (categoryEl && categoryTrackEl) {
   });
 }
 
-  card.addEventListener('click', (e) => {
-    if (isPlacing) return;
-    if (e.target.closest('.post-footer-action')) return;
-    if (e.target.closest('.post-preview-mute-btn')) return;
-    if (e.target.closest('.post-file-preview-play')) return;
-    if (e.target.closest('.post-file-preview-download-btn')) return;
+  const LONG_PRESS_DURATION = 400; // ms — tweak to taste
+let longPressTimer = null;
+
+card.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (isPlacing) return;
+  if (e.target.closest('.post-footer-action')) return;
+  if (e.target.closest('.post-preview-mute-btn')) return;
+  if (e.target.closest('.post-file-preview-play')) return;
+  if (e.target.closest('.post-file-preview-download-btn')) return;
+
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null;
     openPostDetailModal(post, user);
-  });
+  }, LONG_PRESS_DURATION);
+});
+
+card.addEventListener('mouseup', () => {
+  clearTimeout(longPressTimer);
+  longPressTimer = null;
+});
+
+card.addEventListener('mouseleave', () => {
+  clearTimeout(longPressTimer);
+  longPressTimer = null;
+});
 
   return card;
 }
@@ -1758,43 +2152,60 @@ function initializeEventListeners() {
   });
 
   // Right-click: single = open/close form, double = toggle edit mode
-  (canvasViewport || mainPageContainer).addEventListener('contextmenu', (e) => {
+    (canvasViewport || mainPageContainer).addEventListener('contextmenu', (e) => {
     e.preventDefault();
-
-  // ignore right-click entirely during placement
-  if (isPlacing) return;
+    if (isPlacing) return;
 
     const now = Date.now();
     const timeSince = now - lastRightClick;
     lastRightClick = now;
 
-    const isFormOpen = postFormOverlay.style.display === 'flex';
-
     if (timeSince < DOUBLE_CLICK_THRESHOLD) {
+      // Double right-click = open post form
       lastRightClick = 0;
-      closePostForm();
-      toggleEditMode();
-      return;
-    }
-
-    
-    // if right-clicked on a post, next created post links to it
-    const clickedCard = e.target.closest('.post-card');
-    pendingLinkPostId = clickedCard ? clickedCard.dataset.postId : null;
-
-    setTimeout(() => {
-      if (lastRightClick !== now) return;
-
-      if (isFormOpen) {
+      if (postFormOverlay.style.display === 'flex') {
         closePostForm();
-        return;
-      }
-
-      if (!editMode) {
+      } else if (!editMode) {
+        const clickedCard = e.target.closest('.post-card');
+        pendingLinkPostId = clickedCard ? clickedCard.dataset.postId : null;
         openPostForm();
       }
-    }, DOUBLE_CLICK_THRESHOLD);
+    }
+    // Single right-click does nothing now
   });
+
+    // Profile modal
+  document.getElementById('profileClose').addEventListener('click', closeProfileModal);
+  profileOverlay.addEventListener('click', (e) => {
+    if (e.target === profileOverlay) closeProfileModal();
+  });
+
+  document.getElementById('profileSaveBtn').addEventListener('click', saveProfileChanges);
+
+  document.getElementById('profileCoverInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    newProfileCoverFile = file;
+    const coverImg = document.getElementById('profileCoverImg');
+    coverImg.src           = URL.createObjectURL(file);
+    coverImg.style.display = 'block';
+    document.getElementById('profileCoverPlaceholder').style.display = 'none';
+  });
+
+  document.getElementById('profilePfpInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    newProfilePfpFile = file;
+    const pfpWidget = document.getElementById('profilePfpWidget');
+    pfpWidget.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    img.style.cssText = 'width:60px;height:60px;object-fit:cover;display:block;';
+    pfpWidget.appendChild(img);
+  });
+
+  // Escape closes profile modal too
+  // (add to existing keydown handler)
 
   // Wheel zoom (disable during placement to keep it stable)
   canvasViewport.addEventListener('wheel', (e) => {
@@ -1910,18 +2321,37 @@ function initializeEventListeners() {
     }
   });
 
-  document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-
-    if (postDetailOverlay?.style.display === 'flex') {
+    if (profileOverlay?.style.display === 'flex') {
+      closeProfileModal();
+    } else if (postDetailOverlay?.style.display === 'flex') {
       closePostDetailModal();
     } else if (editMode) {
       toggleEditMode();
     } else if (postFormOverlay?.style.display === 'flex') {
       closePostForm();
-    } 
+    }
+  });
+
+    // Notification panel toggle
+  notifBar.addEventListener('click', () => {
+    const isOpen = notifPanel.classList.contains('open');
+    if (isOpen) {
+      notifPanel.classList.remove('open');
+    } else {
+      notifPanel.classList.add('open');
+      loadNotifications();
+    }
   });
 }
+
+
+
+  // Close panel when clicking canvas
+  document.getElementById('canvasViewport').addEventListener('mousedown', () => {
+    notifPanel.classList.remove('open');
+  });
 
 // ============================================
 // 14. INITIALIZATION
@@ -1942,6 +2372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadCategories();
   await loadPosts();
   await loadLinks();
+  await loadNotifications();
   renderLinks(lastLoadedPosts, lastLoadedLinks);
 
   console.log('Main page ready');
