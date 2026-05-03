@@ -9,19 +9,19 @@ let currentUserData = null;
 let barPosition  = localStorage.getItem('musicBarPosition') || 'bottom';
 let isShuffled = false;
 let isLooping  = false;
+let isMusicEditMode = false;
+
+const MUSIC_DBLCLICK_MS = 400;
 
 const audio = new Audio();
 audio.preload = 'none';
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 let musicBar, musicBarPfp, musicBarUsername, musicBarTitle, musicBarArtist, musicBarSep;
-let musicPrev, musicPlayPause, musicNext, musicPositionToggle, musicOpenPanel;
+let musicPrev, musicPlayPause, musicNext, musicOpenPanel;
 let musicPanelOverlay, musicPanelTitle, musicTrackList, musicDropZone;
 let musicDownloadPlaylist, musicClosePanel;
-
 let musicShuffle, musicLoop;
-
-
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function getPlaylistTitle() {
@@ -35,11 +35,19 @@ function pfpSrcFor(userRow) {
   return userRow.pfp_url || (userRow.pfp ? `./images/pfps/${userRow.pfp}` : fallback);
 }
 
+function escAttr(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // ── Load ───────────────────────────────────────────────────────────────────
 export async function loadTracks() {
   const { data, error } = await supabase
     .from('music_tracks')
-    .select('*')                     // ← no join
+    .select('*')
     .eq('group_id', 'group1')
     .order('created_at', { ascending: true });
 
@@ -70,49 +78,124 @@ function renderTrackList() {
   if (!musicTrackList) return;
   musicTrackList.innerHTML = '';
 
-  if (tracks.length === 0) {
-    musicTrackList.innerHTML = '<div class="music-empty">no tracks yet — drag a file above</div>';
+  // In edit mode only show the signed-in user's own tracks
+  const visibleTracks = isMusicEditMode
+    ? tracks.filter(t => currentUserData?.is_admin || t.user_id === currentUser?.id)
+    : tracks;
+
+  if (visibleTracks.length === 0) {
+    musicTrackList.innerHTML = `<div class="music-empty">${
+      isMusicEditMode ? 'no tracks to edit' : 'no tracks yet — drag a file above'
+    }</div>`;
     return;
   }
 
-  tracks.forEach((track, idx) => {
-    const isOwn = currentUserData?.is_admin || track.user_id === currentUser?.id;
+  visibleTracks.forEach((track) => {
+    const idx      = tracks.indexOf(track);
     const isActive = idx === currentIndex;
 
     const row = document.createElement('div');
-    row.className = `music-track-row${isActive ? ' active' : ''}`;
-    row.dataset.idx = idx;
+    row.className   = `music-track-row${isActive ? ' active' : ''}${isMusicEditMode ? ' edit-mode' : ''}`;
+    row.dataset.idx     = idx;
+    row.dataset.trackId = track.id;
 
-    row.innerHTML = `
-      <img class="music-track-pfp" src="${pfpSrcFor(track.users)}" alt="">
-      <div class="music-track-info">
-        <span class="music-track-title">${track.title}</span>
-        ${track.artist ? `<span class="music-track-artist">${track.artist}</span>` : ''}
-      </div>
-      ${isOwn ? `<div class="music-track-actions">
-        <button class="music-track-btn music-rename-btn">rename</button>
-        <button class="music-track-btn music-delete-btn">delete</button>
-      </div>` : ''}
-    `;
+    if (isMusicEditMode) {
+      // ── Edit-mode row: inline inputs + delete button ──
+      row.innerHTML = `
+        <img class="music-track-pfp" src="${pfpSrcFor(track.users)}" alt="">
+        <div class="music-track-info">
+          <input class="music-rename-input music-rename-title"
+                 value="${escAttr(track.title)}" placeholder="title">
+          <input class="music-rename-input music-rename-artist"
+                 value="${escAttr(track.artist || '')}" placeholder="artist">
+        </div>
+        <div class="music-track-actions">
+          <button class="music-track-btn music-delete-btn">delete</button>
+        </div>
+      `;
 
-    row.addEventListener('click', (e) => {
-      if (e.target.closest('.music-track-actions')) return;
-      playTrack(idx);
-    });
-
-    if (isOwn) {
-      row.querySelector('.music-rename-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        startRename(track, row, idx);
+      // Inputs: stop row-click bubbling; Enter = save this track
+      row.querySelectorAll('.music-rename-input').forEach(input => {
+        input.addEventListener('click', e => e.stopPropagation());
+        input.addEventListener('keydown', async (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            await saveTrackRename(track, row);
+            input.blur();
+          }
+        });
       });
-      row.querySelector('.music-delete-btn')?.addEventListener('click', (e) => {
+
+      row.querySelector('.music-delete-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         deleteTrack(track.id, idx);
       });
+
+      // Row click in edit mode does nothing
+      row.addEventListener('click', e => e.stopPropagation());
+
+    } else {
+      // ── Normal row: pfp + title/artist, click to play ──
+      row.innerHTML = `
+        <img class="music-track-pfp" src="${pfpSrcFor(track.users)}" alt="">
+        <div class="music-track-info">
+          <span class="music-track-title">${escAttr(track.title)}</span>
+          ${track.artist ? `<span class="music-track-artist">${escAttr(track.artist)}</span>` : ''}
+        </div>
+      `;
+
+      row.addEventListener('click', () => playTrack(idx));
     }
 
     musicTrackList.appendChild(row);
   });
+}
+
+// ── Save a single track's rename inputs ───────────────────────────────────
+async function saveTrackRename(track, row) {
+  const titleInput  = row.querySelector('.music-rename-title');
+  const artistInput = row.querySelector('.music-rename-artist');
+  if (!titleInput) return;
+
+  const newTitle  = titleInput.value.trim()  || track.title;
+  const newArtist = artistInput.value.trim();
+
+  // Skip DB write if nothing changed
+  if (newTitle === track.title && newArtist === (track.artist || '')) return;
+
+  const { error } = await supabase
+    .from('music_tracks')
+    .update({ title: newTitle, artist: newArtist })
+    .eq('id', track.id)
+    .eq('user_id', currentUser.id);
+
+  if (error) { alert(`Rename failed: ${error.message}`); return; }
+
+  // Update local state so the bar display is fresh
+  track.title  = newTitle;
+  track.artist = newArtist;
+
+  // Reflect saved values back into the inputs
+  titleInput.value  = newTitle;
+  artistInput.value = newArtist;
+}
+
+// ── Exit edit mode — saves every modified row then re-renders ──────────────
+async function exitMusicEditMode() {
+  const rows = musicTrackList.querySelectorAll('.music-track-row[data-track-id]');
+  for (const row of rows) {
+    if (!row.querySelector('.music-rename-title')) continue;
+    const trackId = row.dataset.trackId;
+    const track   = tracks.find(t => String(t.id) === String(trackId));
+    if (track) await saveTrackRename(track, row);
+  }
+
+  isMusicEditMode = false;
+  const musicPanel = document.querySelector('.music-panel');
+  if (musicPanel) musicPanel.classList.remove('edit-mode');
+  musicPanelTitle.textContent = getPlaylistTitle();
+  renderTrackList();
+  updateBarDisplay();
 }
 
 // ── Playback ───────────────────────────────────────────────────────────────
@@ -153,13 +236,11 @@ function applyBarPosition() {
   if (barPosition === 'top') {
     musicBar.style.top           = '0';
     musicBar.style.bottom        = 'auto';
-    musicPositionToggle.textContent = '▽';
     document.body.style.paddingTop    = BAR_H;
     document.body.style.paddingBottom = '';
   } else {
     musicBar.style.bottom        = '0';
     musicBar.style.top           = 'auto';
-    musicPositionToggle.textContent = '△';
     document.body.style.paddingBottom = BAR_H;
     document.body.style.paddingTop    = '';
   }
@@ -174,7 +255,6 @@ async function uploadTrack(file) {
   const title    = file.name.replace(/\.[^.]+$/, '');
   const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
 
-  // show uploading state
   musicDropZone.querySelector('span').textContent = `uploading ${file.name}…`;
 
   const { error: upErr } = await supabase.storage
@@ -183,7 +263,7 @@ async function uploadTrack(file) {
 
   if (upErr) {
     alert(`Upload failed: ${upErr.message}`);
-    musicDropZone.querySelector('span').textContent = 'drag mp3 · mp4 · flac · wav here — or click to browse';
+    musicDropZone.querySelector('span').textContent = 'upload music';
     return;
   }
 
@@ -204,7 +284,7 @@ async function uploadTrack(file) {
 
   if (dbErr) { alert(`Failed to save track: ${dbErr.message}`); return; }
 
-  musicDropZone.querySelector('span').textContent = 'drag mp3 · mp4 · flac · wav here — or click to browse';
+  musicDropZone.querySelector('span').textContent = 'upload music';
   await loadTracks();
 }
 
@@ -229,41 +309,6 @@ async function deleteTrack(trackId, idx) {
   }
 
   await loadTracks();
-}
-
-// ── Rename ─────────────────────────────────────────────────────────────────
-function startRename(track, row, idx) {
-  const infoEl    = row.querySelector('.music-track-info');
-  const actionsEl = row.querySelector('.music-track-actions');
-
-  infoEl.innerHTML = `
-    <input class="music-rename-input" id="rnTitle" value="${track.title}" placeholder="title">
-    <input class="music-rename-input" id="rnArtist" value="${track.artist || ''}" placeholder="artist">
-  `;
-  actionsEl.innerHTML = `
-    <button class="music-track-btn music-save-btn">save</button>
-    <button class="music-track-btn music-cancel-btn">cancel</button>
-  `;
-
-  actionsEl.querySelector('.music-save-btn').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const newTitle  = row.querySelector('#rnTitle').value.trim()  || track.title;
-    const newArtist = row.querySelector('#rnArtist').value.trim();
-
-    const { error } = await supabase
-      .from('music_tracks')
-      .update({ title: newTitle, artist: newArtist })
-      .eq('id', track.id)
-      .eq('user_id', currentUser.id);
-
-    if (error) { alert(`Rename failed: ${error.message}`); return; }
-    await loadTracks();
-  });
-
-  actionsEl.querySelector('.music-cancel-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    renderTrackList();
-  });
 }
 
 // ── Download playlist ──────────────────────────────────────────────────────
@@ -295,7 +340,6 @@ async function downloadPlaylist() {
     URL.revokeObjectURL(a.href);
   } catch (err) {
     console.warn('JSZip unavailable, falling back to M3U:', err);
-    // M3U fallback
     let m3u = '#EXTM3U\n';
     tracks.forEach(t => {
       m3u += `#EXTINF:-1,${t.artist ? t.artist + ' - ' : ''}${t.title}\n${t.file_url}\n`;
@@ -326,7 +370,6 @@ export async function initMusic(user, userData) {
   musicPrev             = document.getElementById('musicPrev');
   musicPlayPause        = document.getElementById('musicPlayPause');
   musicNext             = document.getElementById('musicNext');
-  musicPositionToggle   = document.getElementById('musicPositionToggle');
   musicOpenPanel        = document.getElementById('musicOpenPanel');
   musicPanelOverlay     = document.getElementById('musicPanelOverlay');
   musicPanelTitle       = document.getElementById('musicPanelTitle');
@@ -340,21 +383,45 @@ export async function initMusic(user, userData) {
   musicPanelTitle.textContent = getPlaylistTitle();
   applyBarPosition();
 
+  // ── Double right-click on music panel toggles edit mode ──
+  const musicPanel = document.querySelector('.music-panel');
+  let lastMusicRightClick = 0;
+
+  musicPanel.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const now = Date.now();
+    if (now - lastMusicRightClick < MUSIC_DBLCLICK_MS) {
+      lastMusicRightClick = 0;
+      if (isMusicEditMode) {
+        exitMusicEditMode();
+      } else {
+        isMusicEditMode = true;
+        musicPanel.classList.add('edit-mode');
+        musicPanelTitle.textContent = getPlaylistTitle() + ' · editing';
+        renderTrackList();
+      }
+    } else {
+      lastMusicRightClick = now;
+    }
+  });
+
   // ── Audio events ──
   audio.addEventListener('ended', () => {
-  if (isLooping) {
-    audio.play().catch(console.error);
-    return;
-  }
-  if (isShuffled) {
-    const next = Math.floor(Math.random() * tracks.length);
-    playTrack(next);
-    return;
-  }
-  const next = currentIndex + 1;
-  if (next < tracks.length) playTrack(next);
-  else { isPlaying = false; currentIndex = -1; updateBarDisplay(); }
-});
+    if (isLooping) {
+      audio.play().catch(console.error);
+      return;
+    }
+    if (isShuffled) {
+      const next = Math.floor(Math.random() * tracks.length);
+      playTrack(next);
+      return;
+    }
+    const next = currentIndex + 1;
+    if (next < tracks.length) playTrack(next);
+    else { isPlaying = false; currentIndex = -1; updateBarDisplay(); }
+  });
   audio.addEventListener('play',  () => { isPlaying = true;  updateBarDisplay(); });
   audio.addEventListener('pause', () => { isPlaying = false; updateBarDisplay(); });
 
@@ -363,13 +430,13 @@ export async function initMusic(user, userData) {
     if (currentIndex > 0) playTrack(currentIndex - 1);
   });
   musicNext.addEventListener('click', () => {
-  if (tracks.length === 0) return;
-  if (isShuffled) {
-    playTrack(Math.floor(Math.random() * tracks.length));
-  } else if (currentIndex < tracks.length - 1) {
-    playTrack(currentIndex + 1);
-  }
-});
+    if (tracks.length === 0) return;
+    if (isShuffled) {
+      playTrack(Math.floor(Math.random() * tracks.length));
+    } else if (currentIndex < tracks.length - 1) {
+      playTrack(currentIndex + 1);
+    }
+  });
   musicPlayPause.addEventListener('click', () => {
     if (tracks.length === 0) return;
     if (isPlaying) {
@@ -380,24 +447,23 @@ export async function initMusic(user, userData) {
     }
   });
 
-  musicPositionToggle.addEventListener('click', () => {
-    barPosition = barPosition === 'bottom' ? 'top' : 'bottom';
-    localStorage.setItem('musicBarPosition', barPosition);
-    applyBarPosition();
-  });
-
   musicOpenPanel.addEventListener('click', () => {
     musicPanelOverlay.classList.add('open');
   });
   musicClosePanel.addEventListener('click', () => {
+    if (isMusicEditMode) exitMusicEditMode();
     musicPanelOverlay.classList.remove('open');
   });
   musicPanelOverlay.addEventListener('click', (e) => {
-    if (e.target === musicPanelOverlay) musicPanelOverlay.classList.remove('open');
+    if (e.target === musicPanelOverlay) {
+      if (isMusicEditMode) exitMusicEditMode();
+      musicPanelOverlay.classList.remove('open');
+    }
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && musicPanelOverlay.classList.contains('open')) {
+      if (isMusicEditMode) exitMusicEditMode();
       musicPanelOverlay.classList.remove('open');
     }
   });
@@ -426,14 +492,14 @@ export async function initMusic(user, userData) {
   });
 
   musicShuffle.addEventListener('click', () => {
-  isShuffled = !isShuffled;
-  musicShuffle.classList.toggle('active', isShuffled);
-});
+    isShuffled = !isShuffled;
+    musicShuffle.classList.toggle('active', isShuffled);
+  });
 
-musicLoop.addEventListener('click', () => {
-  isLooping = !isLooping;
-  musicLoop.classList.toggle('active', isLooping);
-});
+  musicLoop.addEventListener('click', () => {
+    isLooping = !isLooping;
+    musicLoop.classList.toggle('active', isLooping);
+  });
 
   await loadTracks();
 }

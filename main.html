@@ -58,26 +58,69 @@
         <!-- ============================================ -->
         <!-- POST DETAIL MODAL                            -->
         <!-- ============================================ -->
-        <div id="postDetailOverlay" class="overlay" style="display:none;">
-        <div id="postDetailModal" class="post-detail-modal">
-            <div class="post-detail-header">
-            <span id="postDetailClose" class="post-detail-close">×</span>
-            </div>
+        <!-- POST DETAIL MODAL -->
+<div id="postDetailOverlay" style="display:none;">
+<div id="postDetailModal" class="post-detail-modal">
 
-            <div id="postDetailContent" class="post-detail-content"></div>
+    <!-- THREAD HEADER BAR -->
+    <div class="pd-thread-bar" id="pdThreadBar">
+        <div class="pd-thread-tabs" id="pdThreadTabs"><!-- tabs injected by JS --></div>
+        <span id="postDetailClose" class="pd-close">×</span>
+    </div>
 
-            <div class="post-detail-comments">
-            <div class="post-detail-comments-title">comments</div>
-
-            <div id="commentsList" class="comments-list"></div>
-
-            <div class="comment-form">
-                <input id="commentInput" class="comment-input" type="text" placeholder="write a comment..." />
-                <button id="commentSubmitBtn" class="comment-submit-btn">post</button>
-            </div>
-            </div>
+    <!-- USER + TITLE ROW -->
+    <div class="pd-identity-row" id="pdIdentityRow">
+        <div class="pd-user-block" id="pdUserBlock">
+            <img class="pd-pfp" id="pdPfp" src="" alt="">
+            <span class="pd-username" id="pdUsername"></span>
         </div>
+        <div class="pd-title-block">
+            <span class="pd-date" id="pdDate"></span>
+            <div class="pd-title" id="pdTitle"><!-- blank if no title --></div>
         </div>
+    </div>
+
+    <!-- MAIN BODY: content left + comments right -->
+        <!-- MAIN BODY: 3 adjustable columns -->
+    <div class="pd-body" id="pdBody">
+
+      <!-- Visual column -->
+      <div class="pd-col pd-visual-col" id="pdVisualCol" style="display:none;">
+        <div class="pd-visual-inner" id="pdVisualInner"></div>
+        <div class="pd-visual-nav" id="pdVisualNav">
+          <button class="pd-vis-btn" id="pdVisPrev">‹</button>
+          <span class="pd-visual-counter" id="pdVisualCounter"></span>
+          <button class="pd-vis-btn" id="pdVisNext">›</button>
+          <button class="pd-vis-btn pd-fullscreen-btn" id="pdFullscreenBtn" title="fullscreen">⤢</button>
+        </div>
+      </div>
+
+      <!-- Resize handle 1 (visual | text) -->
+      <div class="pd-resize-handle" id="pdHandle1" style="display:none;"></div>
+
+      <!-- Text column -->
+      <div class="pd-col pd-text-col" id="pdTextCol" style="display:none;">
+        <div id="postDetailContent" class="pd-text-inner"></div>
+      </div>
+
+      <!-- Resize handle 2 (text | comments) -->
+      <div class="pd-resize-handle" id="pdHandle2"></div>
+
+      <!-- Comments column -->
+      <div class="pd-col pd-comments-col" id="pdCommentsCol">
+        <div class="pd-comments-inner">
+          <div id="commentsList" class="comments-list"></div>
+        </div>
+        <div class="comment-form">
+          <input id="commentInput" class="comment-input" type="text" placeholder="write a comment..." />
+          <button id="commentSubmitBtn" class="comment-submit-btn">post</button>
+        </div>
+      </div>
+
+    </div>
+
+</div>
+</div>
 
         <!-- Notification Panel -->
         <div id="notifBar" class="notif-bar"></div>
@@ -88,7 +131,7 @@
         </div>
 
         <!-- Profile Modal -->
-        <div id="profileOverlay" style="display:none; position:fixed; inset:0; z-index:150; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+        <div id="profileOverlay">
         <div id="profileModal" class="profile-modal">
             <span id="profileClose" class="profile-close">×</span>
 
@@ -136,7 +179,6 @@
   <span id="musicBarTitle" class="music-bar-title">no track</span>
   <span id="musicBarSep" class="music-bar-sep" style="display:none;">·</span>
   <span id="musicBarArtist" class="music-bar-artist"></span>
-  <button id="musicPositionToggle" class="music-ctrl-btn music-position-btn">△</button>
   <button id="musicOpenPanel" class="music-ctrl-btn">≡</button>
 </div>
 
@@ -147,17 +189,97 @@
   <div class="music-panel">
     <div class="music-panel-header">
       <span id="musicPanelTitle" class="music-panel-title"></span>
-      <button id="musicClosePanel" class="music-ctrl-btn">×</button>
+            <button id="musicDownloadPlaylist" class="music-ctrl-btn">⤓ playlist</button>
+
+      <button id="musicClosePanel" class="music-ctrl-btn" style="display:none;"></button>
     </div>
 
     <div id="musicDropZone" class="music-drop-zone">
-      <span>drag mp3 · mp4 · flac · wav here — or click to browse</span>
+      <span>upload music</span>
     </div>
 
     <div id="musicTrackList" class="music-track-list"></div>
 
-    <div class="music-panel-footer">
-      <button id="musicDownloadPlaylist" class="music-ctrl-btn">⤓ playlist</button>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- HELP OVERLAY                                 -->
+<!-- ============================================ -->
+<div id="helpOverlay" class="help-overlay" style="display:none;">
+  <div class="help-modal">
+    <span id="helpClose" class="help-close">×</span>
+
+    <div class="help-grid">
+
+      <div class="help-section">
+        <div class="help-section-title">navigating the feed</div>
+        <div class="help-item"><span class="help-key">drag</span> pan around the canvas</div>
+        <div class="help-item"><span class="help-key">middle-click drag</span> pan (works in any mode)</div>
+        <div class="help-item"><span class="help-key">scroll</span> zoom in / out</div>
+        <div class="help-item"><span class="help-key">H</span> open / close this help screen</div>
+        <div class="help-item"><span class="help-key">Esc</span> close any open panel or mode</div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">creating posts</div>
+        <div class="help-item"><span class="help-key">right-click</span> open new post form</div>
+        <div class="help-item"><span class="help-key">right-click a post → right-click canvas</span> create a post linked to that one</div>
+        <div class="help-item"><span class="help-key">place</span> after submitting, move mouse to position — click to drop</div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">editing your posts</div>
+        <div class="help-item"><span class="help-key">double right-click</span> enter / exit edit mode</div>
+        <div class="help-item"><span class="help-key">✎</span> edit a post's content</div>
+        <div class="help-item"><span class="help-key">✕</span> delete a post</div>
+        <div class="help-item"><span class="help-key">⟴</span> pick up and reposition a post</div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">reading posts</div>
+        <div class="help-item"><span class="help-key">hold click (~400ms)</span> open full post preview</div>
+        <div class="help-item"><span class="help-key">tabs in preview</span> jump to connected posts</div>
+        <div class="help-item"><span class="help-key">×  or  Esc</span> close preview</div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">threads &amp; filters</div>
+        <div class="help-item"><span class="help-key">click a link line</span> show only that connected thread</div>
+        <div class="help-item"><span class="help-key">click empty canvas</span> clear thread filter</div>
+        <div class="help-item"><span class="help-key">click username</span> filter feed to that person</div>
+        <div class="help-item"><span class="help-key">click category</span> filter feed to that category</div>
+        <div class="help-item"><span class="help-key">click again</span> clear any filter</div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">profiles</div>
+        <div class="help-item"><span class="help-key">hold pfp (~400ms)</span> open that user's profile</div>
+        <div class="help-item"><span class="help-key">double right-click profile</span> enter / exit edit mode (your profile only)</div>
+        <div class="help-item"><span class="help-key">in edit mode</span> click cover or pfp to change image, username becomes editable</div>
+        <div class="help-item"><span class="help-key">save</span> confirm changes</div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">notifications</div>
+        <div class="help-item"><span class="help-key">click the right edge bar</span> open / close notifications</div>
+        <div class="help-item"><span class="help-key">click a notification</span> jump to that post</div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">music</div>
+        <div class="help-item"><span class="help-key">‹ ›</span> previous / next track</div>
+        <div class="help-item"><span class="help-key">▷ / ||</span> play / pause</div>
+        <div class="help-item"><span class="help-key">⇄</span> toggle shuffle</div>
+        <div class="help-item"><span class="help-key">↺</span> toggle loop</div>
+        <div class="help-item"><span class="help-key">△ / ▽</span> move bar to top or bottom</div>
+        <div class="help-item"><span class="help-key">≡</span> open music panel</div>
+        <div class="help-item"><span class="help-key">drag or click panel</span> upload a track</div>
+        <div class="help-item"><span class="help-key">double right-click panel</span> enter / exit edit mode (your tracks only)</div>
+        <div class="help-item"><span class="help-key">in edit mode</span> click title or artist to rename — Enter to save</div>
+        <div class="help-item"><span class="help-key">⤓ playlist</span> download all tracks as a zip</div>
+      </div>
+
     </div>
   </div>
 </div>

@@ -100,6 +100,12 @@ let newProfileCoverFile   = null;
 let newProfilePfpFile     = null;
 let currentProfileUserId  = null;
 
+// Post detail 3-col layout state
+let pdColWidths   = { visual: 50, text: 30, comments: 20 };
+let pdFullscreen  = false;
+let _pdHasVisual  = false;
+let _pdHasText    = false;
+
 function buildAdjacency(links) {
   const adj = new Map(); // postId -> Set(postId)
   for (const l of (links || [])) {
@@ -493,64 +499,343 @@ function initFileNav(files) {
 }
 
 // (modal functions unchanged)
+
+
+function formatBodyText(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>');
+}
+
+function initPdAudioPlayer(audioFiles, container) {
+  if (!audioFiles || audioFiles.length === 0) return;
+
+  let idx = 0;
+  const audio = new Audio();
+  audio.preload = 'none';
+
+  const player = document.createElement('div');
+  player.className = 'pd-audio-player';
+
+  player.innerHTML = `
+    <button class="pd-audio-btn pd-audio-play" title="play / pause">▷</button>
+    ${audioFiles.length > 1 ? `<button class="pd-audio-btn pd-audio-next" title="next">›</button>` : ''}
+    <span class="pd-audio-title"></span>
+  `;
+
+  container.appendChild(player);
+
+  const playBtn  = player.querySelector('.pd-audio-play');
+  const nextBtn  = player.querySelector('.pd-audio-next');
+  const titleEl  = player.querySelector('.pd-audio-title');
+
+  function loadTrack(i) {
+    const wasPlaying = !audio.paused;
+    audio.pause();
+    audio.src = audioFiles[i].url;
+    titleEl.textContent = audioFiles[i].name || `track ${i + 1}`;
+    playBtn.textContent = '▷';
+    if (wasPlaying) audio.play().then(() => { playBtn.textContent = '||'; }).catch(() => {});
+  }
+
+  loadTrack(0);
+
+  playBtn.addEventListener('click', () => {
+    if (audio.paused) {
+      audio.play().then(() => { playBtn.textContent = '||'; }).catch(() => {});
+    } else {
+      audio.pause();
+      playBtn.textContent = '▷';
+    }
+  });
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      idx = (idx + 1) % audioFiles.length;
+      loadTrack(idx);
+      audio.play().then(() => { playBtn.textContent = '||'; }).catch(() => {});
+    });
+  }
+
+  audio.addEventListener('ended', () => {
+    if (audioFiles.length > 1) {
+      idx = (idx + 1) % audioFiles.length;
+      loadTrack(idx);
+      audio.play().then(() => { playBtn.textContent = '||'; }).catch(() => {});
+    } else {
+      playBtn.textContent = '▷';
+    }
+  });
+
+  // Stop audio when modal closes
+  const observer = new MutationObserver(() => {
+    if (document.getElementById('postDetailOverlay')?.style.display === 'none') {
+      audio.pause();
+      audio.src = '';
+      observer.disconnect();
+    }
+  });
+  const overlay = document.getElementById('postDetailOverlay');
+  if (overlay) observer.observe(overlay, { attributes: true, attributeFilter: ['style'] });
+}
+
+// ── Apply column flex widths to DOM ──
+function applyPdColWidths() {
+  const vc = document.getElementById('pdVisualCol');
+  const tc = document.getElementById('pdTextCol');
+  const cc = document.getElementById('pdCommentsCol');
+  if (vc && pdColWidths.visual > 0) vc.style.flex = `0 0 ${pdColWidths.visual}%`;
+  if (tc && pdColWidths.text   > 0) tc.style.flex = `0 0 ${pdColWidths.text}%`;
+  if (cc) cc.style.flex = `0 0 ${pdColWidths.comments}%`;
+}
+
+// ── Show/hide cols based on what content exists ──
+function applyPdLayout(hasVisual, hasText) {
+  _pdHasVisual = hasVisual;
+  _pdHasText   = hasText;
+  pdFullscreen = false;
+
+  const vc  = document.getElementById('pdVisualCol');
+  const tc  = document.getElementById('pdTextCol');
+  const cc  = document.getElementById('pdCommentsCol');
+  const h1  = document.getElementById('pdHandle1');
+  const h2  = document.getElementById('pdHandle2');
+  const fsb = document.getElementById('pdFullscreenBtn');
+  if (fsb) fsb.textContent = '⤢';
+
+  if (hasVisual && hasText) {
+    pdColWidths = { visual: 50, text: 30, comments: 20 };
+    vc.style.display = ''; h1.style.display = '';
+    tc.style.display = ''; h2.style.display = '';
+  } else if (hasVisual) {
+    pdColWidths = { visual: 80, text: 0, comments: 20 };
+    vc.style.display = ''; h1.style.display = 'none';
+    tc.style.display = 'none'; h2.style.display = '';
+  } else if (hasText) {
+    pdColWidths = { visual: 0, text: 80, comments: 20 };
+    vc.style.display = 'none'; h1.style.display = 'none';
+    tc.style.display = ''; h2.style.display = '';
+  } else {
+    pdColWidths = { visual: 0, text: 0, comments: 100 };
+    vc.style.display = 'none'; h1.style.display = 'none';
+    tc.style.display = 'none'; h2.style.display = 'none';
+  }
+  cc.style.display = '';
+  applyPdColWidths();
+}
+
+// ── Fullscreen toggle for visual col ──
+function togglePdFullscreen() {
+  pdFullscreen = !pdFullscreen;
+  const vc  = document.getElementById('pdVisualCol');
+  const tc  = document.getElementById('pdTextCol');
+  const cc  = document.getElementById('pdCommentsCol');
+  const h1  = document.getElementById('pdHandle1');
+  const h2  = document.getElementById('pdHandle2');
+  const fsb = document.getElementById('pdFullscreenBtn');
+
+  if (pdFullscreen) {
+    tc.style.display  = 'none';
+    cc.style.display  = 'none';
+    h1.style.display  = 'none';
+    h2.style.display  = 'none';
+    vc.style.flex     = '0 0 100%';
+    if (fsb) fsb.textContent = '⤡';
+  } else {
+    cc.style.display = '';
+    if (fsb) fsb.textContent = '⤢';
+    applyPdLayout(_pdHasVisual, _pdHasText);
+  }
+}
+
+// ── Build visual carousel in the visual col ──
+function buildPdVisualCarousel(visuals, inner, prevBtn, nextBtn, counterEl) {
+  if (!visuals || visuals.length === 0) return;
+  let idx = 0;
+
+  function render() {
+    const f = visuals[idx];
+    if (f.type === 'image') {
+      inner.innerHTML = `<img class="pd-visual-img" src="${f.url}" alt="">`;
+    } else {
+      inner.innerHTML = `<video class="pd-visual-video" src="${f.url}" controls></video>`;
+    }
+    if (counterEl) counterEl.textContent = visuals.length > 1 ? `${idx + 1} / ${visuals.length}` : '';
+  }
+
+  render();
+
+  if (prevBtn) {
+    prevBtn.style.visibility = visuals.length > 1 ? 'visible' : 'hidden';
+    prevBtn.onclick = () => { idx = (idx - 1 + visuals.length) % visuals.length; render(); };
+  }
+  if (nextBtn) {
+    nextBtn.style.visibility = visuals.length > 1 ? 'visible' : 'hidden';
+    nextBtn.onclick = () => { idx = (idx + 1) % visuals.length; render(); };
+  }
+}
+
+// ── Drag-to-resize columns ──
+function initPdResize() {
+  const body = document.getElementById('pdBody');
+  const h1   = document.getElementById('pdHandle1');
+  const h2   = document.getElementById('pdHandle2');
+  let dragging = null;
+
+  h1.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = { handle: 'h1', startX: e.clientX, start: { ...pdColWidths } };
+  });
+  h2.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = { handle: 'h2', startX: e.clientX, start: { ...pdColWidths } };
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const totalW = body.getBoundingClientRect().width;
+    if (!totalW) return;
+    const dxPct = ((e.clientX - dragging.startX) / totalW) * 100;
+
+    if (dragging.handle === 'h1') {
+      const newV = Math.max(15, Math.min(75, dragging.start.visual + dxPct));
+      const newT = Math.max(10, dragging.start.visual + dragging.start.text - newV);
+      pdColWidths.visual = newV;
+      pdColWidths.text   = newT;
+    } else {
+      const leftKey = _pdHasText ? 'text' : 'visual';
+      const newL = Math.max(15, Math.min(85, dragging.start[leftKey] + dxPct));
+      const newC = Math.max(10, dragging.start[leftKey] + dragging.start.comments - newL);
+      pdColWidths[leftKey]  = newL;
+      pdColWidths.comments  = newC;
+    }
+    applyPdColWidths();
+  });
+
+  document.addEventListener('mouseup', () => { dragging = null; });
+}
+
 async function openPostDetailModal(post, user) {
   activePostForModal = post;
 
-  const titleHtml = post.title ? `<div class="post-title"><span class="post-title-track">${post.title}</span></div>` : '';
-  const bodyHtml  = post.body  ? `<div class="post-body">${post.body}</div>` : '';
+  // ── User block ──
+  const pfpFallback = './images/pfps/default.png';
+  const pfpSrc = user?.pfp_url || (user?.pfp ? `./images/pfps/${user.pfp}` : pfpFallback);
+  document.getElementById('pdPfp').src              = pfpSrc;
+  document.getElementById('pdUsername').textContent = user?.username || '';
 
-  let visualHtml = '';
-  if (post.files && post.files.length > 1) {
-    visualHtml = `
-      <div class="post-detail-file-nav" id="fileNav">
-        <button class="file-nav-btn" id="fileNavPrev">‹</button>
-        <div class="file-nav-viewer" id="fileNavViewer"></div>
-        <button class="file-nav-btn" id="fileNavNext">›</button>
-      </div>
-      <div class="file-nav-label" id="fileNavLabel"></div>
-    `;
-    setTimeout(() => initFileNav(post.files), 0);
-  } else if (post.file_type === 'image' && post.file_url) {
-    visualHtml = `<img class="post-image" src="${post.file_url}" alt="">`;
-  } else if (post.file_type === 'video' && post.file_url) {
-    visualHtml = `<video class="post-video" src="${post.file_url}" controls></video>`;
-  } else if (post.cover_image_url) {
-    visualHtml = `<img class="post-image" src="${post.cover_image_url}" alt="">`;
+  // ── Date ──
+  const dateEl = document.getElementById('pdDate');
+  dateEl.textContent = post.created_at
+    ? new Date(post.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
+
+  // ── Title + Category ──
+  document.getElementById('pdTitle').textContent = post.title || '';
+  let categoryEl = document.getElementById('pdCategory');
+  if (!categoryEl) {
+    categoryEl = document.createElement('div');
+    categoryEl.id        = 'pdCategory';
+    categoryEl.className = 'pd-category';
+    document.getElementById('pdTitle').insertAdjacentElement('afterend', categoryEl);
+  }
+  categoryEl.textContent  = post.category || '';
+  categoryEl.style.display = post.category ? '' : 'none';
+
+  // ── Classify files ──
+  const ext     = getFileExtension(post.file_name || '');
+  const isImage = post.file_type === 'image'  || isImageExtension(ext);
+  const isAudio = post.file_type === 'audio'  || isAudioExtension(ext);
+  const isVideo = (post.file_type === 'video' || isVideoExtension(ext)) && !isAudio;
+  const isMulti = !!(post.files && post.files.length > 1);
+  const hasCover = !!post.cover_image_url;
+
+  let visualFiles   = []; // { url, name, type:'image'|'video' }
+  let audioFiles    = []; // { url, name }
+  let downloadFiles = []; // { url, name }
+
+  if (isMulti) {
+    (post.files || []).forEach(f => {
+      if      (f.type === 'image' || f.type === 'video') visualFiles.push(f);
+      else if (f.type === 'audio') audioFiles.push({ url: f.url, name: f.name });
+      else    downloadFiles.push({ url: f.url, name: f.name });
+    });
+  } else if (post.file_url) {
+    if      (isImage) visualFiles.push({ url: post.file_url, name: post.file_name, type: 'image' });
+    else if (isVideo) visualFiles.push({ url: post.file_url, name: post.file_name, type: 'video' });
+    else if (isAudio) audioFiles.push({ url: post.file_url, name: post.file_name || 'audio' });
+    else              downloadFiles.push({ url: post.file_url, name: post.file_name || 'file' });
   }
 
-  let fileActionsHtml = '';
-  if (post.file_url && post.file_type === 'other') {
-    fileActionsHtml = `
-      <div class="post-file-actions" style="margin-top:10px;">
-        <a href="${post.file_url}" target="_blank" rel="noreferrer">view file</a>
-        <span style="opacity:0.4;"> | </span>
-        <a href="${post.file_url}" download>save file</a>
-      </div>
-    `;
+  // Cover counts as visual if no real visual files
+  const coverAsVisual = hasCover && visualFiles.length === 0;
+  if (coverAsVisual) {
+    visualFiles.push({ url: post.cover_image_url, name: 'cover', type: 'image' });
   }
 
-  postDetailContent.innerHTML = `
-    ${titleHtml}
-    ${visualHtml}
-    ${bodyHtml}
-    ${fileActionsHtml}
-    <div style="margin-top:10px; opacity:0.7;">
-      ${user?.username ? `posted by ${user.username}` : ''}
-      ${post.category ? ` • ${post.category}` : ''}
-    </div>
-  `;
+  const hasVisual = visualFiles.length > 0;
+  const hasText   = !!(post.body?.trim()) || audioFiles.length > 0 || downloadFiles.length > 0;
+
+  // ── Visual column ──
+  const visualInner = document.getElementById('pdVisualInner');
+  visualInner.innerHTML = '';
+  if (hasVisual) {
+    buildPdVisualCarousel(
+      visualFiles,
+      visualInner,
+      document.getElementById('pdVisPrev'),
+      document.getElementById('pdVisNext'),
+      document.getElementById('pdVisualCounter')
+    );
+  }
+
+  // ── Text column ──
+  const contentCol = document.getElementById('postDetailContent');
+  contentCol.innerHTML = '';
+
+  // Download tabs
+  if (downloadFiles.length > 0) {
+    const bar = document.createElement('div');
+    bar.className = 'pd-file-tab-bar';
+    downloadFiles.forEach(f => {
+      bar.innerHTML += `<a class="pd-file-tab" href="${f.url}" download title="${f.name}">${f.name}</a>`;
+    });
+    contentCol.appendChild(bar);
+  }
+
+  // Audio tabs + player
+  if (audioFiles.length > 0) {
+    const bar = document.createElement('div');
+    bar.className = 'pd-file-tab-bar';
+    audioFiles.forEach(f => {
+      bar.innerHTML += `<a class="pd-file-tab" href="${f.url}" download title="${f.name}">${f.name}</a>`;
+    });
+    contentCol.appendChild(bar);
+    initPdAudioPlayer(audioFiles, contentCol);
+  }
+
+  // Body text
+  if (post.body) {
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'post-body post-body-formatted';
+    bodyEl.innerHTML  = formatBodyText(post.body);
+    contentCol.appendChild(bodyEl);
+  }
+
+  // ── Apply layout ──
+  applyPdLayout(hasVisual, hasText);
 
   postDetailOverlay.style.display = 'flex';
   loadCommentsForPost(post.id);
-
-  // Load + render connected post tabs
   loadConnectedTabs(post);
 }
 
 async function loadConnectedTabs(post) {
-  // Remove any existing tabs
-  const existing = postDetailModal.querySelector('.post-detail-tabs');
-  if (existing) existing.remove();
+  const tabContainer = document.getElementById('pdThreadTabs');
+  tabContainer.innerHTML = '';
 
   const { data: links, error } = await supabase
     .from('post_links')
@@ -560,7 +845,6 @@ async function loadConnectedTabs(post) {
 
   if (error || !links || links.length === 0) return;
 
-  // Get the IDs of all connected posts (the OTHER end of each link)
   const connectedIds = links.map(l =>
     String(l.a_post_id) === String(post.id) ? l.b_post_id : l.a_post_id
   );
@@ -572,57 +856,38 @@ async function loadConnectedTabs(post) {
 
   if (postsErr || !connectedPosts || connectedPosts.length === 0) return;
 
-  // Fetch usernames
   const userIds = [...new Set(connectedPosts.map(p => p.user_id).filter(Boolean))];
   let userMap = {};
   if (userIds.length > 0) {
     const { data: users } = await supabase
-      .from('users')
-      .select('id, username')
-      .in('id', userIds);
+      .from('users').select('id, username').in('id', userIds);
     (users || []).forEach(u => { userMap[u.id] = u.username; });
   }
-
-  // Build tab bar
-  const tabBar = document.createElement('div');
-  tabBar.className = 'post-detail-tabs';
 
   connectedPosts.forEach(cp => {
     const label = cp.title || cp.body?.slice(0, 30) || userMap[cp.user_id] || 'post';
     const tab = document.createElement('button');
-    tab.className = 'post-detail-tab';
+    tab.className   = 'pd-thread-tab';
     tab.textContent = label;
-    tab.title = label;
+    tab.title       = label;
 
     tab.addEventListener('click', async () => {
-      const { data: fullPost } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('id', cp.id)
-        .single();
-
-      const { data: fullUser } = await supabase
-        .from('users')
-        .select('id, username, pfp, pfp_url')
-        .eq('id', cp.user_id)
-        .single();
-
+      const { data: fullPost } = await supabase.from('posts').select('*').eq('id', cp.id).single();
+      const { data: fullUser } = await supabase.from('users').select('id, username, pfp, pfp_url').eq('id', cp.user_id).single();
       if (fullPost) openPostDetailModal(fullPost, fullUser || {});
     });
 
-    tabBar.appendChild(tab);
+    tabContainer.appendChild(tab);
   });
-
-  // Insert above the content
-  postDetailModal.insertBefore(tabBar, postDetailContent);
 }
 
 function closePostDetailModal() {
   postDetailOverlay.style.display = 'none';
-  postDetailContent.innerHTML = '';
-  commentsList.innerHTML = '';
-  commentInput.value = '';
-  activePostForModal = null;
+  document.getElementById('postDetailContent').innerHTML = '';
+  commentsList.innerHTML  = '';
+  commentInput.value      = '';
+  activePostForModal      = null;
+  pdFullscreen            = false;
 }
 
 // ============================================
@@ -1098,11 +1363,13 @@ async function openProfileModal(userId) {
     }
     // single right-click inside profile does nothing
   };
-  profileOverlay.style.display = 'flex';
+    profileOverlay.classList.add('open');
+  document.body.classList.add('profile-open');
 }
 
 function closeProfileModal() {
-  profileOverlay.style.display = 'none';
+  profileOverlay.classList.remove('open');
+  document.body.classList.remove('profile-open');
   profileEditMode     = false;
   newProfileCoverFile = null;
   newProfilePfpFile   = null;
@@ -1854,7 +2121,7 @@ if (titleEl && titleTrackEl) {
   requestAnimationFrame(() => {
     if (titleTrackEl.scrollWidth > titleEl.clientWidth) {
       const origText = titleTrackEl.textContent;
-      const sep = '\u00A0\u00A0☮\u00A0\u00A0'; // just 3 spaces — tight but readable
+      const sep = '\u00A0\u00A0'; // just 3 spaces — tight but readable
 
       titleTrackEl.textContent = origText + sep + origText;
 
@@ -2089,6 +2356,9 @@ function initializeEventListeners() {
     window.__lastMouseEventForPlacement = e;
   });
 
+  document.getElementById('pdFullscreenBtn')?.addEventListener('click', togglePdFullscreen);
+  initPdResize();
+
   const canvasViewport = document.getElementById('canvasViewport');
 
   // ── Middle-click pan (works in ALL modes including placement) ──
@@ -2191,9 +2461,7 @@ function initializeEventListeners() {
 
     // Profile modal
   document.getElementById('profileClose').addEventListener('click', closeProfileModal);
-  profileOverlay.addEventListener('click', (e) => {
-    if (e.target === profileOverlay) closeProfileModal();
-  });
+
 
   document.getElementById('profileSaveBtn').addEventListener('click', saveProfileChanges);
 
@@ -2336,33 +2604,62 @@ function initializeEventListeners() {
     }
   });
 
-     document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (profileOverlay?.classList.contains('open')) {
-      closeProfileModal();
-    } else if (postDetailOverlay?.style.display === 'flex') {
-      closePostDetailModal();
-    } else if (postFormOverlay?.style.display === 'flex') {
-      closePostForm();
-    } else if (editMode) {
-      toggleEditMode();
+   // Escape key — closes post detail first, then panels
+  document.addEventListener('keydown', (e) => {
+  // H key — open/close help (only when not typing)
+  if (
+    e.key === 'h' || e.key === 'H'
+  ) {
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    const isTyping = tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable;
+    if (!isTyping) {
+      e.preventDefault();
+      const helpOverlay = document.getElementById('helpOverlay');
+      const isOpen = helpOverlay.style.display !== 'none';
+      helpOverlay.style.display = isOpen ? 'none' : 'flex';
+      return;
     }
-  });
+  }
 
-    // Notification panel toggle
+  if (e.key !== 'Escape') return;
+  const helpOverlay = document.getElementById('helpOverlay');
+  if (helpOverlay.style.display !== 'none') {
+    helpOverlay.style.display = 'none';
+  } else if (postDetailOverlay?.style.display === 'flex') {
+    closePostDetailModal();
+  } else if (profileOverlay?.classList.contains('open')) {
+    closeProfileModal();
+  } else if (notifPanel?.classList.contains('open')) {
+    notifPanel.classList.remove('open');
+    document.body.classList.remove('notif-open');
+  } else if (postFormOverlay?.style.display === 'flex') {
+    closePostForm();
+  } else if (editMode) {
+    toggleEditMode();
+  }
+});
+
+document.getElementById('helpClose')?.addEventListener('click', () => {
+  document.getElementById('helpOverlay').style.display = 'none';
+});
+
+document.getElementById('helpOverlay')?.addEventListener('click', (e) => {
+  if (e.target === document.getElementById('helpOverlay')) {
+    document.getElementById('helpOverlay').style.display = 'none';
+  }
+});
+
+  // Notification panel toggle — persistent, no canvas-click close
   notifBar.addEventListener('click', () => {
     const isOpen = notifPanel.classList.contains('open');
     if (isOpen) {
       notifPanel.classList.remove('open');
+      document.body.classList.remove('notif-open');
     } else {
       notifPanel.classList.add('open');
+      document.body.classList.add('notif-open');
       loadNotifications();
     }
-  });
-
-    // Close panel when clicking canvas
-  document.getElementById('canvasViewport').addEventListener('mousedown', () => {
-    notifPanel.classList.remove('open');
   });
 
 }

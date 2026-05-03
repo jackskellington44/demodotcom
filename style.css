@@ -15,6 +15,9 @@
     --font-size-responsive: clamp(2rem, 8vw, 6.25rem);
     --font-size-button: clamp(1.5rem, 5vw, 5rem);
     --font-size-pfp-plus: clamp(2rem, 4vw, 3.125rem);
+    --notif-bar-w:   20px;
+    --notif-panel-w: 300px;
+    --profile-w:     25%;
 
     /* Post card sizes - matches login/signup styling */
     --post-title-size: var(--font-size-xl);
@@ -1153,330 +1156,509 @@ input[type=number]::-webkit-outer-spin-button {
 /* ============================================ */
 
 /* ============================================ */
-/* POST DETAIL TABS (connected posts)           */
+/* 16.0 POST DETAIL MODAL                       */
 /* ============================================ */
 
-.post-detail-tabs {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 20px;
+#postDetailOverlay {
+  position: fixed;
+  top: 0; bottom: 44px;
+  left: 0;
+  right: var(--notif-bar-w);
+  z-index: 100;
+  background: #000;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  transition: left 0.2s ease, right 0.2s ease;
 }
 
-.post-detail-tab {
+.post-detail-modal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #000;
+}
+
+/* ── Thread header bar (same vibe as music bar) ── */
+.pd-thread-bar {
+  flex-shrink: 0;
+  height: 44px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.18);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  overflow: hidden;
+}
+
+.pd-thread-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  flex: 1;
+  overflow-x: auto;
+  min-width: 0;
+  align-items: center;
+}
+
+.pd-thread-tab {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.45);
+  border: none;
+  outline: none;
+  color: rgba(255,255,255,0.35);
   font-family: inherit;
-  font-size: 0.75rem;
-  padding: 4px 12px;
+  font-size: 0.78rem;
+  padding: 2px 8px;
   cursor: pointer;
-  border-radius: 20px;
-  transition: all 0.15s ease;
   white-space: nowrap;
-  max-width: 160px;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+  opacity: 0.75;
+}
+
+.pd-thread-tab:hover {
+  color: rgba(255,255,255,0.95);
+  opacity: 1;
+}
+
+.pd-close {
+  flex-shrink: 0;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: rgba(255,255,255,0.3);
+  transition: color 0.15s ease;
+  padding: 4px 5px;
+  font-family: inherit;
+  opacity: 0.75;
+}
+
+.pd-close:hover {
+  color: rgba(255,255,255,0.95);
+  opacity: 1;
+}
+
+/* ── Identity row: pfp/user block + date/title block ── */
+.pd-identity-row {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.18);
+}
+
+.pd-user-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 80px;
+  padding-right: 20px;
+  border-right: 1px solid rgba(255,255,255,0.18);
+}
+
+.pd-pfp {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.pd-username {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.35);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  font-family: inherit;
+}
+
+.pd-title-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding-left: 20px;
+  min-width: 0;
+}
+
+.pd-date {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.25);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.pd-title {
+  font-size: clamp(1.2rem, 3vw, 2.2rem);
+  color: rgba(255,255,255,0.88);
+  font-family: inherit;
+  line-height: 1.15;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.post-detail-tab:hover {
-  color: rgba(255,255,255,0.9);
-  border-color: rgba(255,255,255,0.4);
+.pd-category {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.25);
+  font-family: inherit;
+  margin-top: 12px;
 }
 
-#postDetailOverlay {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    background: #000;
-    display: none;
-    align-items: flex-start;
-    justify-content: center;
-    overflow-y: auto;
-}
-
-.post-detail-modal {
-    width: 100%;
-    min-height: 100vh;
-    background: #000;
-    border: none;
-    border-radius: 0;
-    padding: 40px clamp(24px, 6vw, 120px);
-    max-width: 820px;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-/* --- Close button --- */
-.post-detail-header {
-    display: flex;
-    justify-content: flex-end;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    padding: 0 0 12px 0;
-    background: transparent;
-}
-
-.post-detail-close {
-    cursor: pointer;
-    font-size: 28px;
-    line-height: 28px;
-    color: rgba(255,255,255,0.35);
-    transition: color 0.2s ease;
-}
-
-.post-detail-close:hover {
-    color: rgba(255,255,255,0.9);
-}
-
-/* --- Content area --- */
-.post-detail-content {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.post-layout-visual-text.is-long-text .post-visual-text-row {
+/* ── Main body: 75/25 split ── */
+/* ── 3-column body ── */
+.pd-body {
+  flex: 1;
+  display: flex;
   flex-direction: row;
-  align-items: stretch;
+  overflow: hidden;
+  min-height: 0;
 }
 
-.post-layout-visual-text.is-long-text .post-visual-text-row .post-body {
-  position: relative;
-  height: 340px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-top: 30px;
-  padding-right: 12px;
-  line-height: 1.5;
-  margin-top: -30px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0,0,0,0.3) 8%,
-    black 50%,
-    black 74%,
-    rgba(0,0,0,0.5) 88%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0,0,0,0.3) 8%,
-    black 50%,
-    black 74%,
-    rgba(0,0,0,0.5) 88%,
-    transparent 100%
-  );
+/* shared col base */
+.pd-col {
+  overflow: hidden;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.post-layout-visual-text.is-long-text .post-visual-text-row .post-body::-webkit-scrollbar {
-  display: none;
+/* ── Resize handles ── */
+.pd-resize-handle {
+  flex: 0 0 3px;
+  background: rgba(255,255,255,0.1);
+  cursor: col-resize;
+  transition: background 0.15s ease;
+  height: 100%;
+  flex-shrink: 0;
+}
+.pd-resize-handle:hover,
+.pd-resize-handle:active {
+  background: rgba(255,255,255,0.3);
 }
 
-.post-layout-visual-text.is-long-text + .post-footer {
-  width: 612px;
+/* ── Visual column ── */
+.pd-visual-col {
+  background: #050505;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.post-layout-text.is-long-text .post-body {
-  width: 612px;
+.pd-visual-inner {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.pd-visual-img {
   max-width: 100%;
-  height: 400px;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.pd-visual-video {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  background: #111;
+}
+
+/* nav bar at bottom of visual col */
+.pd-visual-nav {
+  flex-shrink: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding: 0 14px;
+}
+
+.pd-vis-btn {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: rgba(255,255,255,0.4);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  transition: color 0.15s ease;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+.pd-vis-btn:hover { color: rgba(255,255,255,0.95); opacity: 1; }
+
+.pd-visual-counter {
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.22);
+  font-family: inherit;
+  min-width: 36px;
+  text-align: center;
+  flex: 1;
+}
+
+.pd-fullscreen-btn {
+  margin-left: auto;
+}
+
+/* ── Text column ── */
+.pd-text-col {
+  border-right: 1px solid rgba(255,255,255,0.12);
+  overflow: hidden;
+}
+
+#postDetailContent {
+  flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
-  line-height: 1.5;
-  padding-top: 30px;
-  padding-right: 12px;
-  margin-top: -30px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 50%,
-    black 74%,
-    rgba(0,0,0,0.5) 88%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    black 50%,
-    black 74%,
-    rgba(0,0,0,0.5) 88%,
-    transparent 100%
-  );
+  padding: 24px 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+#postDetailContent::-webkit-scrollbar       { width: 3px; }
+#postDetailContent::-webkit-scrollbar-track { background: transparent; }
+#postDetailContent::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+#postDetailContent::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+/* text col content */
+#postDetailContent .post-body {
+  font-size: 0.92rem;
+  color: rgba(255,255,255,0.8);
+  line-height: 1.75;
+  font-family: inherit;
 }
 
-.post-layout-text.is-long-text .post-body::-webkit-scrollbar {
-  display: none;
+#postDetailContent .post-image {
+  max-width: 100%;
+  max-height: 52vh;
+  object-fit: contain;
+  display: block;
 }
 
-.post-layout-title-visual-text.is-long-text .post-visual-text-row .post-image,
-.post-layout-title-visual-text.is-long-text .post-visual-text-row .post-file-preview,
-.post-layout-title-visual-text.is-long-text .post-visual-text-row .post-body {
-    width: 300px;
+#postDetailContent .post-video {
+  max-width: 100%;
+  max-height: 52vh;
+  display: block;
+  background: #111;
 }
 
-.post-layout-title-visual-text.is-long-text .post-visual-text-row .post-image,
-.post-layout-title-visual-text.is-long-text .post-visual-text-row .post-file-preview {
-    height: 300px;
-    flex-shrink: 0;
+/* ── Comments column ── */
+.pd-comments-col {
+  overflow: hidden;
+  flex-direction: column;
 }
 
-.post-detail-content .post-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #fff;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
+.pd-comments-inner {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 14px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
 }
+.pd-comments-inner::-webkit-scrollbar       { width: 3px; }
+.pd-comments-inner::-webkit-scrollbar-track { background: transparent; }
+.pd-comments-inner::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+.pd-comments-inner::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
-.post-detail-content .post-image {
-    width: 100%;
-    max-height: 520px;
-    object-fit: cover;
-    border-radius: 12px;
-    display: block;
-}
-
-.post-detail-content .post-video {
-    width: 100%;
-    max-height: 520px;
-    border-radius: 12px;
-    display: block;
-    background: #111;
-}
-
-.post-detail-content .post-body {
-    font-size: 0.95rem;
-    color: rgba(255,255,255,0.85);
-    line-height: 1.7;
-    margin: 0;
-    opacity: 1;
-}
-
-.post-detail-content .post-file-actions {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.post-detail-content .post-file-actions a {
-    color: rgba(255,255,255,0.5);
-    text-decoration: none;
-    font-size: 0.85rem;
-    padding: 6px 14px;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 20px;
-    transition: all 0.2s ease;
-}
-
-.post-detail-content .post-file-actions a:hover {
-    color: #fff;
-    border-color: rgba(255,255,255,0.4);
-}
-
-.post-detail-meta {
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.35);
-    margin-top: 4px;
-}
-
-/* --- Comments --- */
-.post-detail-comments {
-    margin-top: 32px;
-    padding-top: 20px;
-    border-top: 1px solid rgba(255,255,255,0.08);
-}
-
-.post-detail-comments-title {
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.35);
-    text-transform: lowercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 14px;
-}
-
+/* ── Comments ── */
 .comments-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .comment-row {
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .comment-username {
-    color: rgba(255,255,255,0.45);
-    font-size: 0.8rem;
-    white-space: nowrap;
+  color: rgba(255,255,255,0.3);
+  font-size: 0.66rem;
+  font-family: inherit;
 }
 
 .comment-body {
-    color: rgba(255,255,255,0.8);
-    font-size: 0.85rem;
+  color: rgba(255,255,255,0.75);
+  font-size: 0.82rem;
+  font-family: inherit;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
+/* comment input pinned to bottom */
 .comment-form {
-    display: flex;
-    gap: 8px;
-    padding-bottom: 40px;
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  padding: 10px 14px;
+  align-items: center;
+  background: rgba(255,255,255,0.02);
 }
 
 .comment-input {
-    flex: 1;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    color: white;
-    padding: 10px 14px;
-    border-radius: 20px;
-    font-family: inherit;
-    font-size: 0.85rem;
-    outline: none;
-    transition: border-color 0.2s ease;
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.18);
+  outline: none;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.8rem;
+  font-family: inherit;
+  padding: 4px 2px;
+  transition: border-bottom-color 0.15s ease;
 }
-
-.comment-input::placeholder {
-    color: rgba(255,255,255,0.2);
-}
-
-.comment-input:focus {
-    border-color: rgba(255,255,255,0.25);
-}
+.comment-input:focus         { border-bottom-color: rgba(255,255,255,0.5); }
+.comment-input::placeholder  { color: rgba(255,255,255,0.3); }
 
 .comment-submit-btn {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.5);
-    padding: 10px 18px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.85rem;
-    transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: rgba(255,255,255,0.35);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 6px;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.comment-submit-btn:hover { color: rgba(255,255,255,0.9); }
+
+/* ── File tab bar + audio player (text col) ── */
+.pd-file-tab-bar {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-.comment-submit-btn:hover {
-    color: #fff;
-    background: rgba(255,255,255,0.12);
-    border-color: rgba(255,255,255,0.25);
+.pd-file-tab {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: rgba(255,255,255,0.35);
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  opacity: 0.8;
+}
+.pd-file-tab:hover { color: rgba(255,255,255,0.95); opacity: 1; }
+
+.pd-audio-player {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
+.pd-audio-btn {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: rgba(255,255,255,0.45);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+.pd-audio-btn:hover { color: rgba(255,255,255,0.95); }
+
+.pd-audio-title {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.32);
+  font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* file nav (multi-file visual carousel fallback) */
+.post-detail-file-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-nav-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 2rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+  font-family: inherit;
+}
+.file-nav-btn:hover { color: rgba(255,255,255,0.9); }
+
+.file-nav-viewer {
+  flex: 1;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-nav-label {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.25);
+  text-align: center;
+  font-family: inherit;
+}
+
+.file-nav-download a {
+  color: rgba(255,255,255,0.5);
+  font-size: 0.9rem;
+  text-decoration: underline;
+  font-family: inherit;
+}
 
 
 /* ============================================ */
@@ -1487,13 +1669,16 @@ input[type=number]::-webkit-outer-spin-button {
    Later we can replace with drag-to-pan + zoom. */
 #canvasViewport {
   position: fixed;
-  inset: 0;
-  overflow: hidden; /* back to hidden for manual pan */
+  top: 0; bottom: 0;
+  left: 0;
+  right: var(--notif-bar-w);
+  overflow: hidden;
   background-image: url('./images/background.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
+  transition: left 0.2s ease, right 0.2s ease;
 }
 
 #postCanvas {
@@ -1930,14 +2115,15 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 /* Profile panel — fixed right side */
+/* Profile panel — fixed LEFT side */
 #profileOverlay {
   position: fixed;
   top: 0;
-  right: 20px; /* clears notif bar */
-  width: calc(25% - 20px);
+  left: 0;
+  width: var(--profile-w);
   height: 100vh;
   z-index: 150;
-  background: rgba(0,0,0,0.92);
+  background: rgba(0,0,0,0.75);
   display: none;
   flex-direction: column;
   overflow: hidden;
@@ -1960,18 +2146,18 @@ input[type=number]::-webkit-outer-spin-button {
 
 .profile-modal::-webkit-scrollbar { display: none; }
 
-/* Canvas shrinks when profile is open */
-.profile-open #canvasViewport {
-  right: calc(25%);
-  transition: right 0.2s ease;
-}
+/* Profile open — overlays canvas, only shifts post detail */
+body.profile-open #postDetailOverlay { left: var(--profile-w); }
 
-.profile-open #postDetailOverlay {
-  right: calc(25%);
-  width: auto;
-  transition: right 0.2s ease;
-}
+/* Both open */
+body.profile-open.notif-open #postDetailOverlay { left: var(--profile-w); right: calc(var(--notif-bar-w) + var(--notif-panel-w)); }
 
+/* Notif open — shrink canvas/detail from right */
+body.notif-open #postDetailOverlay { right: calc(var(--notif-bar-w) + var(--notif-panel-w)); }
+
+/* Both open — apply both independently (no conflict) */
+body.profile-open.notif-open #canvasViewport    { left: var(--profile-w); right: calc(var(--notif-bar-w) + var(--notif-panel-w)); }
+body.profile-open.notif-open #postDetailOverlay { left: var(--profile-w); right: calc(var(--notif-bar-w) + var(--notif-panel-w)); }
 /* ============================================ */
 /* 20.0 MUSIC BAR                               */
 /* ============================================ */
@@ -2000,7 +2186,7 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .music-bar-username {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.3);
   white-space: nowrap;
   flex-shrink: 0;
@@ -2024,7 +2210,7 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .music-bar-artist {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.35);
   white-space: nowrap;
   flex-shrink: 0;
@@ -2039,7 +2225,7 @@ input[type=number]::-webkit-outer-spin-button {
   appearance: none;
   box-shadow: none;
   color: rgba(255, 255, 255, 0.45);
-  font-size: 1rem;
+  font-size: .8rem;
   line-height: 1;
   cursor: pointer;
   padding: 4px 5px;
@@ -2085,8 +2271,8 @@ input[type=number]::-webkit-outer-spin-button {
 .music-panel {
   background: rgba(12, 12, 12, 0.98);
   width: 100%;
-  max-width: 560px;
-  max-height: 70vh;
+  max-width: 100vw;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2211,13 +2397,43 @@ input[type=number]::-webkit-outer-spin-button {
 .music-rename-input {
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.6);
   font-family: inherit;
   font-size: 0.8rem;
   outline: none;
   width: 100%;
   padding: 2px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-bottom-color 0.15s ease, color 0.15s ease;
+  cursor: text;
+}
+
+.music-rename-input:focus {
+  border-bottom-color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.music-rename-input.music-rename-artist {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.music-rename-input.music-rename-artist:focus {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Edit mode row — no pointer cursor, not clickable to play */
+.music-track-row.edit-mode {
+  cursor: default;
+}
+
+/* Subtle outline on the panel when editing */
+.music-panel.edit-mode {
+  outline: 1px solid rgba(255, 255, 255, 0.1);
+  outline-offset: -1px;
 }
 
 .music-panel-footer {
@@ -2234,4 +2450,88 @@ input[type=number]::-webkit-outer-spin-button {
   padding: 24px 0;
   text-align: center;
   font-family: inherit;
+}
+
+/* ============================================ */
+/* HELP OVERLAY                                 */
+/* ============================================ */
+
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.help-modal {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: rgba(10, 10, 10, 0.96);
+  padding: 48px 48px 40px;
+}
+
+.help-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-size: 1.4rem;
+  color: rgba(255,255,255,0.3);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.help-close:hover {
+  color: rgba(255,255,255,0.9);
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 36px 48px;
+}
+
+.help-section-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.28);
+  margin-bottom: 12px;
+  font-family: inherit;
+}
+
+.help-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.6);
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.help-key {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.92);
+  font-family: inherit;
+  font-weight: 600;
+}
+
+/* ── Hide all scrollbars globally ── */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
 }
