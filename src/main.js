@@ -807,21 +807,68 @@ async function openPostDetailModal(post, user) {
   contentCol.innerHTML = '';
 
   // Download tabs
+    // Download tabs
   if (downloadFiles.length > 0) {
     const bar = document.createElement('div');
     bar.className = 'pd-file-tab-bar';
     downloadFiles.forEach(f => {
-      bar.innerHTML += `<a class="pd-file-tab" href="${f.url}" download title="${f.name}">${f.name}</a>`;
+      const btn = document.createElement('button');
+      btn.className   = 'pd-file-tab pd-file-tab-dl';
+      btn.innerHTML = `<span class="pd-tab-name">${f.name}</span><span class="pd-dl-icon">⤓</span>`;
+      btn.style.display = 'flex';
+      btn.style.alignItems = 'center';
+      btn.title       = f.name;
+      btn.addEventListener('click', async () => {
+        try {
+          const res  = await fetch(f.url);
+          const blob = await res.blob();
+          const a    = document.createElement('a');
+          a.href     = URL.createObjectURL(blob);
+          a.download = f.name;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        } catch {
+          // fallback: let browser handle it
+          const a    = document.createElement('a');
+          a.href     = f.url;
+          a.download = f.name;
+          a.click();
+        }
+      });
+      bar.appendChild(btn);
     });
     contentCol.appendChild(bar);
   }
 
   // Audio tabs + player
+   // Audio tabs + player
   if (audioFiles.length > 0) {
     const bar = document.createElement('div');
     bar.className = 'pd-file-tab-bar';
     audioFiles.forEach(f => {
-      bar.innerHTML += `<a class="pd-file-tab" href="${f.url}" download title="${f.name}">${f.name}</a>`;
+      const btn = document.createElement('button');
+      btn.className   = 'pd-file-tab pd-file-tab-dl';
+      btn.innerHTML = `<span class="pd-tab-name">${f.name}</span><span class="pd-dl-icon">⤓</span>`;
+      btn.style.display = 'flex';
+      btn.style.alignItems = 'center';
+      btn.title       = f.name;
+      btn.addEventListener('click', async () => {
+        try {
+          const res  = await fetch(f.url);
+          const blob = await res.blob();
+          const a    = document.createElement('a');
+          a.href     = URL.createObjectURL(blob);
+          a.download = f.name;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        } catch {
+          const a    = document.createElement('a');
+          a.href     = f.url;
+          a.download = f.name;
+          a.click();
+        }
+      });
+      bar.appendChild(btn);
     });
     contentCol.appendChild(bar);
     initPdAudioPlayer(audioFiles, contentCol);
@@ -934,7 +981,7 @@ function openEditForm(post) {
 if (hasNonVisualFile || post.cover_image_url) {
   postCoverImageLabel.style.display = 'block';
   postCoverFileName.textContent = post.cover_image_url
-    ? 'replace cover'
+    ? decodeURIComponent(post.cover_image_url.split('/').pop().replace(/^\d+-/, ''))
     : 'choose cover image';
 }
   openPostForm();
@@ -2143,8 +2190,25 @@ function buildPostCard(post, user) {
   content.classList.add('post-layout-visual');
   if (isVideoFile) {
     content.innerHTML = buildFilePreviewMarkup(post);
-    // Mark solo video for natural aspect-ratio CSS
     content.querySelector('.post-file-preview-video')?.classList.add('post-file-preview-video-natural');
+    content.classList.add('post-layout-visual-natural');
+    card.classList.add('post-card-natural-video');
+
+    // Lock card width to the video's actual rendered size once metadata is available
+    const vid = content.querySelector('.post-preview-video');
+    if (vid) {
+      const applyNaturalWidth = () => {
+        if (!vid.videoWidth || !vid.videoHeight) return;
+        const aspect = vid.videoWidth / vid.videoHeight;
+        // Constrain to max-height:400px and max-width:300px
+        let h = Math.min(vid.videoHeight, 400);
+        let w = Math.round(h * aspect);
+        if (w > 300) { w = 300; h = Math.round(w / aspect); }
+        card.style.width = `${w}px`;
+      };
+      if (vid.readyState >= 1) applyNaturalWidth();
+      else vid.addEventListener('loadedmetadata', applyNaturalWidth, { once: true });
+    }
   } else if (isOtherFile) {
     content.innerHTML = buildFilePreviewMarkup(post);
   } else {
@@ -2174,7 +2238,7 @@ function buildPostCard(post, user) {
   const bodyEl = content.querySelector('.post-body');
   if (bodyEl) {
     const text = bodyEl.textContent.trim();
-    if (text.length >= 244) {
+    if (text.length >= 35) {
       content.classList.add('is-long-text');
       trapScrollInside(bodyEl);
     }
@@ -2299,7 +2363,7 @@ if (titleEl && titleTrackEl) {
       <img class="post-footer-pfp" src="${pfpSrc}" alt="" data-user-id="${post.user_id}" style="cursor:pointer;">
       <span class="post-footer-action post-footer-edit">edit</span>
       <span class="post-footer-action post-footer-reposition">⟴</span>
-      <span class="post-footer-category"><span class="post-footer-category-track">${post.category || 'none'}</span></span>
+      <span class="post-footer-category post-footer-filter-btn"><span class="post-footer-category-track">${post.category || 'none'}</span></span>
     `;
 
     footer.querySelector('.post-footer-edit')?.addEventListener('click', (e) => {
@@ -2333,7 +2397,7 @@ if (titleEl && titleTrackEl) {
   else {
     footer.innerHTML = `
     <img class="post-footer-pfp" src="${pfpSrc}" alt="" data-user-id="${post.user_id}" style="cursor:pointer;">
-    <span class="post-footer-username post-footer-filter-btn">${user?.username || 'unknown'}</span>
+    <span class="post-footer-username post-footer-filter-btn"><span class="post-footer-username-track">${user?.username || 'unknown'}</span></span>
     <span class="post-footer-category post-footer-filter-btn"><span class="post-footer-category-track">${post.category || 'none'}</span></span>
   `;
 
@@ -2383,7 +2447,7 @@ if (categoryEl && categoryTrackEl) {
   requestAnimationFrame(() => {
     if (categoryTrackEl.scrollWidth > categoryEl.clientWidth) {
       const origText = categoryTrackEl.textContent;
-      const sep = '\u00A0\u00A0☮\u00A0\u00A0';
+      const sep = '\u00A0\u00A0';
 
       categoryTrackEl.textContent = origText + sep + origText;
 
@@ -2404,6 +2468,34 @@ if (categoryEl && categoryTrackEl) {
     }
   });
 }
+
+  const usernameEl      = card.querySelector('.post-footer-username');
+  const usernameTrackEl = card.querySelector('.post-footer-username-track');
+
+  if (usernameEl && usernameTrackEl) {
+    requestAnimationFrame(() => {
+      if (usernameTrackEl.scrollWidth > usernameEl.clientWidth) {
+        const origText = usernameTrackEl.textContent;
+        const sep = '\u00A0';
+        usernameTrackEl.textContent = origText + sep + origText;
+
+        requestAnimationFrame(() => {
+          const totalW = usernameTrackEl.scrollWidth;
+          if (totalW > 0) {
+            const cvs = document.createElement('canvas');
+            const ctx = cvs.getContext('2d');
+            const style = getComputedStyle(usernameTrackEl);
+            ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+            const firstHalfW = ctx.measureText(origText + sep).width;
+            const pct = (firstHalfW / totalW) * 100;
+            usernameTrackEl.style.setProperty('--marquee-end-pct', `-${pct.toFixed(3)}%`);
+          }
+        });
+
+        usernameEl.classList.add('is-marquee');
+      }
+    });
+  }
 
   const LONG_PRESS_DURATION = 400; // ms — tweak to taste
 let longPressTimer = null;
@@ -2611,6 +2703,18 @@ function initializeEventListeners() {
   postFormOverlay.addEventListener('click', (e) => {
     if (e.target === postFormOverlay) closePostForm();
   });
+
+   postCoverImageInput.addEventListener('change', () => {
+    const file = postCoverImageInput.files[0];
+    if (file) {
+      postCoverFileName.textContent = file.name;
+    } else {
+      postCoverFileName.textContent = editingPost?.cover_image_url
+        ? 'replace cover'
+        : 'choose cover image';
+    }
+  });
+
 
   postFileInput.addEventListener('change', async () => {
   const files = [...postFileInput.files];

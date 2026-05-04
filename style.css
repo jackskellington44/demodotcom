@@ -755,29 +755,47 @@ input[type=number]::-webkit-outer-spin-button {
     flex-shrink: 0;
 }
 
-/* Solo video — natural proportions, no box */
-.post-file-preview-video.post-file-preview-video-natural {
-  width: auto;
-  height: auto;
-  max-width: 400px;
-  max-height: 400px;
-  border: none;
-  background: transparent;
+
+
+/* Natural video — card shrinks to actual rendered video width */
+.post-card-natural-video {
+    width: 300px; /* JS overrides this once video metadata loads */
+    max-width: 300px;
 }
 
-.post-file-preview-video.post-file-preview-video-natural .post-preview-video {
-  width: auto;
-  height: auto;
-  max-width: 400px;
-  max-height: 400px;
-  object-fit: unset;
-  display: block;
+/* Override the generic 300px fixed width that post-layout-visual sets */
+.post-card-natural-video .post-layout-visual {
+    width: auto;
 }
 
-/* footer tracks the video's natural width */
-.post-layout-visual + .post-footer {
-  width: auto;
-  max-width: 400px;
+/* Content and footer must stay inside the JS-measured card width */
+.post-card-natural-video .post-layout-visual-natural,
+.post-card-natural-video .post-footer {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+/* Prevent pfp and category from overflowing narrow portrait videos */
+.post-card-natural-video .post-footer {
+    overflow: hidden;
+    gap: 4px;
+}
+
+.post-card-natural-video .post-footer-pfp {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    min-width: 0;
+}
+
+.post-card-natural-video .post-footer-username {
+    min-width: 0;
+}
+
+.post-card-natural-video .post-footer-category {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: 80px;
 }
 
 .post-title {
@@ -830,6 +848,12 @@ input[type=number]::-webkit-outer-spin-button {
 @keyframes post-title-marquee {
     from { transform: translateX(0); }
     to   { transform: translateX(var(--marquee-end-pct, -50%)); }
+}
+
+.post-layout-title-visual-text.is-long-text .post-visual-text-row .post-body,
+.post-layout-visual-text.is-long-text .post-visual-text-row .post-body,
+.post-layout-title-text.is-long-text .post-body {
+    text-align: justify;
 }
 
 /* ============================================ */
@@ -933,19 +957,24 @@ input[type=number]::-webkit-outer-spin-button {
   opacity: 1;
 }
 
-/* Solo video — natural aspect ratio instead of fixed square */
+/* Solo video — natural aspect ratio, no fixed box */
 .post-file-preview-video.post-file-preview-video-natural {
   width: auto;
   height: auto;
   max-width: 300px;
   max-height: 400px;
+  border: none;
+  background: transparent;
 }
 
+/* width: auto lets the video use its intrinsic aspect ratio */
 .post-file-preview-video.post-file-preview-video-natural .post-preview-video {
-  width: 100%;
+  width: auto;
   height: auto;
+  max-width: 300px;
   max-height: 400px;
-  object-fit: contain;
+  object-fit: unset;
+  display: block;
 }
 
 /* ---- Audio with cover image ---- */
@@ -1072,16 +1101,51 @@ input[type=number]::-webkit-outer-spin-button {
     font-size: var(--post-footer-size);
     color: rgba(0, 0, 0, 0.5);
     font-family: inherit;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.post-footer-username-track {
+    display: inline-block;
+    white-space: nowrap;
+    will-change: transform;
+}
+
+.post-footer-username.is-marquee {
+    -webkit-mask-image: linear-gradient(
+        to right,
+        transparent 0%,
+        black 14%,
+        black 86%,
+        transparent 100%
+    );
+    mask-image: linear-gradient(
+        to right,
+        transparent 0%,
+        black 14%,
+        black 86%,
+        transparent 100%
+    );
+}
+
+.post-footer-username.is-marquee .post-footer-username-track {
+    animation: post-username-marquee 10s linear infinite;
+}
+
+@keyframes post-username-marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(var(--marquee-end-pct, -50%)); }
 }
 
 .post-footer-category {
     font-size: var(--post-footer-size);
     color: rgba(0, 0, 0, 0.3);
     font-family: inherit;
-    margin-left: auto;
     overflow: hidden;
     white-space: nowrap;
-    max-width: 180px;
+    max-width: 120px;
     flex-shrink: 0;
 }
 
@@ -1228,7 +1292,7 @@ input[type=number]::-webkit-outer-spin-button {
 .logout-btn {
     position: fixed;
     right: 2%;
-    bottom: 2%;
+    bottom: 4%;
     z-index: 50;
 }
 
@@ -1680,10 +1744,12 @@ input[type=number]::-webkit-outer-spin-button {
 .pd-file-tab-bar {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .pd-file-tab {
@@ -1696,14 +1762,23 @@ input[type=number]::-webkit-outer-spin-button {
   padding: 2px 8px;
   cursor: pointer;
   white-space: nowrap;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
   text-decoration: none;
   transition: color 0.15s ease;
   opacity: 0.8;
 }
 .pd-file-tab:hover { color: rgba(255,255,255,0.95); opacity: 1; }
+
+.pd-file-tab-dl .pd-dl-icon {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  margin-left: 3px;
+  flex-shrink: 0;
+}
+
+.pd-file-tab-dl:hover .pd-dl-icon {
+  opacity: 1;
+}
 
 .pd-audio-player {
   display: flex;
