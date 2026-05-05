@@ -15,9 +15,9 @@
     --font-size-responsive: clamp(2rem, 8vw, 6.25rem);
     --font-size-button: clamp(1.5rem, 5vw, 5rem);
     --font-size-pfp-plus: clamp(2rem, 4vw, 3.125rem);
-    --notif-bar-w:   20px;
-    --notif-panel-w: 300px;
-    --profile-w:     25%;
+    --notif-bar-w:   1px;
+    --notif-panel-w: 20%;
+    --profile-w:     20%;
 
     /* Post card sizes - matches login/signup styling */
     --post-title-size: var(--font-size-xl);
@@ -51,6 +51,8 @@
 body {
     font-family: Arial, Helvetica, sans-serif;
     overflow: hidden;
+    margin: 0;
+    padding: 0;
 }
 
 /* ============================================ */
@@ -1685,6 +1687,22 @@ input[type=number]::-webkit-outer-spin-button {
   gap: 2px;
 }
 
+.comment-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.comment-pfp {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 .comment-username {
   color: rgba(255,255,255,0.3);
   font-size: 0.66rem;
@@ -1739,6 +1757,46 @@ input[type=number]::-webkit-outer-spin-button {
   white-space: nowrap;
 }
 .comment-submit-btn:hover { color: rgba(255,255,255,0.9); }
+
+/* ── Inline comment editor ── */
+.comment-edit-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.85);
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  outline: none;
+  resize: none;
+  padding: 2px 0;
+  margin-top: 4px;
+  min-height: 40px;
+}
+
+.comment-edit-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.comment-edit-actions button {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+
+.comment-edit-save   { color: rgba(255,255,255,0.5); }
+.comment-edit-delete { color: rgba(255,100,100,0.5); }
+
+.comment-edit-save:hover   { color: rgba(255,255,255,0.95); }
+.comment-edit-delete:hover { color: rgba(255,100,100,0.9); }
 
 /* ── File tab bar + audio player (text col) ── */
 .pd-file-tab-bar {
@@ -2017,8 +2075,8 @@ input[type=number]::-webkit-outer-spin-button {
 .notif-panel {
   position: fixed;
   top: 0;
-  right: -320px;
-  width: 300px;
+  right: calc(-1 * (var(--notif-panel-w) - var(--notif-bar-w)));
+  width: calc(var(--notif-panel-w) - var(--notif-bar-w));
   height: 100vh;
   background: rgba(0, 0, 0, 0.85);
   z-index: 199;
@@ -2028,9 +2086,8 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .notif-panel.open {
-  right: 20px;
+  right: var(--notif-bar-w);
 }
-
 .notif-panel-inner {
   flex: 1;
   overflow-y: auto;
@@ -2344,18 +2401,14 @@ input[type=number]::-webkit-outer-spin-button {
 
 .profile-modal::-webkit-scrollbar { display: none; }
 
-/* Profile open — overlays canvas, only shifts post detail */
+/* Profile open — only shifts post detail modal */
 body.profile-open #postDetailOverlay { left: var(--profile-w); }
 
-/* Both open */
-body.profile-open.notif-open #postDetailOverlay { left: var(--profile-w); right: calc(var(--notif-bar-w) + var(--notif-panel-w)); }
+/* Notif open — only shifts post detail modal */
+body.notif-open #postDetailOverlay { right: var(--notif-panel-w); }
 
-/* Notif open — shrink canvas/detail from right */
-body.notif-open #postDetailOverlay { right: calc(var(--notif-bar-w) + var(--notif-panel-w)); }
-
-/* Both open — apply both independently (no conflict) */
-body.profile-open.notif-open #canvasViewport    { left: var(--profile-w); right: calc(var(--notif-bar-w) + var(--notif-panel-w)); }
-body.profile-open.notif-open #postDetailOverlay { left: var(--profile-w); right: calc(var(--notif-bar-w) + var(--notif-panel-w)); }
+/* Both open — post detail respects both panels */
+body.profile-open.notif-open #postDetailOverlay { left: var(--profile-w); right: var(--notif-panel-w); }
 /* ============================================ */
 /* 20.0 MUSIC BAR                               */
 /* ============================================ */
@@ -2365,6 +2418,7 @@ body.profile-open.notif-open #postDetailOverlay { left: var(--profile-w); right:
   left: 0;
   right: 0;
   bottom: 0;
+  margin-bottom: 0;
   height: 44px;
   background: rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(10px);
@@ -2732,4 +2786,15 @@ body.profile-open.notif-open #postDetailOverlay { left: var(--profile-w); right:
 
 *::-webkit-scrollbar {
   display: none;
+}
+
+/* Suppress browser-native video control overlays on post cards */
+.post-preview-video::-webkit-media-controls {
+  display: none !important;
+}
+.post-preview-video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+.post-preview-video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
 }

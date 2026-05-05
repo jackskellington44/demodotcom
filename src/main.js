@@ -814,7 +814,7 @@ async function openPostDetailModal(post, user) {
     downloadFiles.forEach(f => {
       const btn = document.createElement('button');
       btn.className   = 'pd-file-tab pd-file-tab-dl';
-      btn.innerHTML = `<span class="pd-tab-name">${f.name}</span><span class="pd-dl-icon">⤓</span>`;
+      btn.innerHTML = `</span><span class="pd-dl-icon">⤓</span><span class="pd-tab-name">${f.name}</span>`;
       btn.style.display = 'flex';
       btn.style.alignItems = 'center';
       btn.title       = f.name;
@@ -848,7 +848,7 @@ async function openPostDetailModal(post, user) {
     audioFiles.forEach(f => {
       const btn = document.createElement('button');
       btn.className   = 'pd-file-tab pd-file-tab-dl';
-      btn.innerHTML = `<span class="pd-tab-name">${f.name}</span><span class="pd-dl-icon">⤓</span>`;
+      btn.innerHTML = `</span><span class="pd-dl-icon">⤓</span><span class="pd-tab-name">${f.name}`;
       btn.style.display = 'flex';
       btn.style.alignItems = 'center';
       btn.title       = f.name;
@@ -1796,7 +1796,7 @@ async function loadCommentsForPost(postId) {
   if (commentUserIds.length > 0) {
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, username')
+      .select('id, username, pfp, pfp_url')
       .in('id', commentUserIds);
 
     if (usersError) {
@@ -1820,16 +1820,126 @@ async function loadCommentsForPost(postId) {
     const row = document.createElement('div');
     row.className = 'comment-row';
 
-    const uname = commentUserMap[c.user_id]?.username || 'unknown';
+    const u = commentUserMap[c.user_id];
+    const uname = u?.username || 'unknown';
+    const pfpSrc = u?.pfp_url || (u?.pfp ? `./images/pfps/${u.pfp}` : './images/pfps/default.png');
+    const isOwn = currentUser && c.user_id === currentUser.id;
 
     row.innerHTML = `
-      <div class="comment-username">${uname}</div>
+      <div class="comment-header">
+        <img class="comment-pfp" src="${pfpSrc}" alt="">
+        <span class="comment-username">${uname}</span>
+      </div>
       <div class="comment-body">${c.body}</div>
     `;
+
+    // Double right-click to edit/delete own comments
+    if (isOwn) {
+      let lastRightClickComment = 0;
+
+      row.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const now = Date.now();
+        const timeSince = now - lastRightClickComment;
+        lastRightClickComment = now;
+
+        if (timeSince < DOUBLE_CLICK_THRESHOLD) {
+          lastRightClickComment = 0;
+          openCommentEditMode(row, c);
+        }
+      });
+    }
 
     commentsList.appendChild(row);
   });
 }
+
+function openCommentEditMode(row, comment) {
+  // Prevent double-opening
+  if (row.querySelector('.comment-edit-input')) return;
+
+  const bodyEl = row.querySelector('.comment-body');
+  const originalText = bodyEl.textContent;
+
+  // Replace body with an inline input + save/delete buttons
+  bodyEl.style.display = 'none';
+
+  const input = document.createElement('textarea');
+  input.className = 'comment-edit-input';
+  input.value = originalText;
+
+  const actions = document.createElement('div');
+  actions.className = 'comment-edit-actions';
+  actions.innerHTML = `
+    <button class="comment-edit-save">save</button>
+    <button class="comment-edit-delete">delete</button>
+  `;
+
+  row.appendChild(input);
+  row.appendChild(actions);
+  input.focus();
+  input.select();
+
+  // Cancel — restore original view
+    // Double right-click on the row closes edit mode
+  let lastRightClickEdit = 0;
+  const cancelEdit = () => {
+    input.remove();
+    actions.remove();
+    bodyEl.style.display = '';
+    row.removeEventListener('contextmenu', editContextHandler);
+  };
+  const editContextHandler = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const now = Date.now();
+    const timeSince = now - lastRightClickEdit;
+    lastRightClickEdit = now;
+    if (timeSince < DOUBLE_CLICK_THRESHOLD) {
+      lastRightClickEdit = 0;
+      cancelEdit();
+    }
+  };
+  row.addEventListener('contextmenu', editContextHandler);
+
+  // Save — update in DB then reload
+  actions.querySelector('.comment-edit-save').addEventListener('click', async () => {
+    const newText = input.value.trim();
+    if (!newText) return;
+    const { error } = await supabase
+      .from('comments')
+      .update({ body: newText })
+      .eq('id', comment.id)
+      .eq('user_id', currentUser.id);
+    if (error) { alert(`Save failed: ${error.message}`); return; }
+    await loadCommentsForPost(activePostForModal.id);
+  });
+
+  // Delete — remove from DB then reload
+  actions.querySelector('.comment-edit-delete').addEventListener('click', async () => {
+    const { error } = await supabase
+      .from('comments')
+      .delete()
+      .eq('id', comment.id)
+      .eq('user_id', currentUser.id);
+    if (error) { alert(`Delete failed: ${error.message}`); return; }
+    await loadCommentsForPost(activePostForModal.id);
+  });
+
+  // Enter = save, Escape = cancel
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      actions.querySelector('.comment-edit-save').click();
+    }
+        if (e.key === 'Escape') {
+      cancelEdit();
+    }
+  });
+}
+
 
 async function submitComment() {
   if (!activePostForModal) return;
@@ -2036,7 +2146,7 @@ function buildFilePreviewMarkup(post) {
     const label = getFilePreviewLabel(post.file_name || '');
     return `
       <div class="post-file-preview post-file-preview-video">
-        <video class="post-preview-video" src="${post.file_url}" muted loop autoplay playsinline preload="metadata"></video>
+        <video class="post-preview-video" src="${post.file_url}" muted loop autoplay playsinline preload="metadata" disablepictureinpicture controlslist="nodownload nofullscreen noremoteplayback" x-webkit-airplay="deny"></video>
         <div class="post-file-preview-label">${label}</div>
         <button class="post-preview-mute-btn" type="button" aria-label="toggle sound">X</button>
       </div>
@@ -2284,11 +2394,10 @@ if (titleEl && titleTrackEl) {
   const muteBtn = content.querySelector('.post-preview-mute-btn');
 
    if (previewVideo && muteBtn) {
-    muteBtn.textContent = '♪'; // starts muted — click to toggle sound
+    muteBtn.textContent = '♪'; // starts muted
 
-    // Hover to preview; pause when mouse leaves
-    previewVideo.addEventListener('mouseenter', () => previewVideo.play().catch(() => {}));
-    previewVideo.addEventListener('mouseleave', () => { previewVideo.pause(); });
+    // Ensure it's always playing (autoplay may be blocked on some browsers)
+    previewVideo.play().catch(() => {});
 
     // Prevent drag-drop placement from accidentally triggering mute
     muteBtn.addEventListener('mousedown', e => e.stopPropagation());
