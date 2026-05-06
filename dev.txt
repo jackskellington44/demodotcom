@@ -75,9 +75,9 @@
 ## SITE-SPECIFIC VARIABLES (track for 7-site split later)
 - background image: ./images/background.jpg
 - PFP image set: ./images/pfps/
-- PFP storage bucket: "group1-pfps"
+- PFP storage bucket: "group5-pfps"
 - user table: "users" (will need group column or separate tables)
-- post storage bucket: TBD (will be something like "group1-posts")
+- post storage bucket: TBD (will be something like "group5-posts")
 - post table: TBD (will need group_id column)
 - site title: "Title Here" (in index.html <title>)
 - fake email domain: "@demodotcom.com" (used in auth)

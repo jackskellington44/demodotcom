@@ -898,7 +898,7 @@ async function loadConnectedTabs(post) {
     .from('post_links')
     .select('a_post_id, b_post_id')
     .or(`a_post_id.eq.${post.id},b_post_id.eq.${post.id}`)
-    .eq('group_id', 'group1');
+    .eq('group_id', 'group5');
 
   if (error || !links || links.length === 0) return;
 
@@ -1016,7 +1016,7 @@ async function loadCategories() {
   const { data, error } = await supabase
     .from('categories')
     .select('*')
-    .eq('group_id', 'group1')
+    .eq('group_id', 'group5')
     .order('name', { ascending: true });
 
   if (error) {
@@ -1043,7 +1043,7 @@ async function handleAddCategory() {
   try {
     const { error } = await supabase
       .from('categories')
-      .insert([{ name: name, group_id: 'group1' }]);
+      .insert([{ name: name, group_id: 'group5' }]);
 
     if (error) throw error;
 
@@ -1068,7 +1068,7 @@ async function loadLinks() {
   const { data, error } = await supabase
     .from('post_links')
     .select('id, a_post_id, b_post_id')
-    .eq('group_id', 'group1');
+    .eq('group_id', 'group5');
 
   if (error) {
     console.error('Failed to load links:', error);
@@ -1248,7 +1248,7 @@ async function loadNotifications() {
     .from('notifications')
     .select('id, type, post_id, actor_user_id, created_at')
     .eq('recipient_user_id', currentUser.id)
-    .eq('group_id', 'group1')
+    .eq('group_id', 'group5')
     .order('created_at', { ascending: false })
     .limit(MAX_NOTIFICATIONS);
 
@@ -1379,7 +1379,7 @@ async function openProfileModal(userId) {
     .from('posts')
     .select('id, title, body, file_name')
     .eq('user_id', userId)
-    .eq('group_id', 'group1')
+    .eq('group_id', 'group5')
     .order('created_at', { ascending: false });
 
   if (posts && posts.length > 0) {
@@ -1466,9 +1466,9 @@ async function saveProfileChanges() {
   if (newProfileCoverFile) {
     const path = `covers/${currentProfileUserId}-${Date.now()}.${newProfileCoverFile.name.split('.').pop()}`;
     const { error: upErr } = await supabase.storage
-      .from('group1-pfps').upload(path, newProfileCoverFile);
+      .from('group5-pfps').upload(path, newProfileCoverFile);
     if (upErr) { alert('Cover upload failed'); return; }
-    const { data: urlData } = supabase.storage.from('group1-pfps').getPublicUrl(path);
+    const { data: urlData } = supabase.storage.from('group5-pfps').getPublicUrl(path);
     updates.cover_image_url = urlData.publicUrl;
   }
 
@@ -1477,9 +1477,9 @@ async function saveProfileChanges() {
     const ext  = newProfilePfpFile.name.split('.').pop() || 'webp';
     const path = `${currentProfileUserId}-${Date.now()}.${ext}`;
     const { error: upErr } = await supabase.storage
-      .from('group1-pfps').upload(path, newProfilePfpFile);
+      .from('group5-pfps').upload(path, newProfilePfpFile);
     if (upErr) { alert('PFP upload failed'); return; }
-    const { data: urlData } = supabase.storage.from('group1-pfps').getPublicUrl(path);
+    const { data: urlData } = supabase.storage.from('group5-pfps').getPublicUrl(path);
     updates.pfp_url = urlData.publicUrl;
     updates.pfp     = null;
   }
@@ -1545,10 +1545,10 @@ async function handlePostSubmit() {
       fileType = await getFileType(file);
       const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
-        .from('group1-posts').upload(filePath, file);
+        .from('group5-posts').upload(filePath, file);
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage
-        .from('group1-posts').getPublicUrl(filePath);
+        .from('group5-posts').getPublicUrl(filePath);
       fileURL = urlData.publicUrl;
 
     } else if (isMulti) {
@@ -1557,10 +1557,10 @@ async function handlePostSubmit() {
         const ft = await getFileType(file);
         const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
-          .from('group1-posts').upload(filePath, file);
+          .from('group5-posts').upload(filePath, file);
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage
-          .from('group1-posts').getPublicUrl(filePath);
+          .from('group5-posts').getPublicUrl(filePath);
         filesArray.push({ url: urlData.publicUrl, name: file.name, type: ft });
       }
     }
@@ -1577,10 +1577,10 @@ async function handlePostSubmit() {
     if (coverFile) {
       const coverPath = `${currentUser.id}/covers/${Date.now()}-${coverFile.name}`;
       const { error: coverError } = await supabase.storage
-        .from('group1-posts').upload(coverPath, coverFile);
+        .from('group5-posts').upload(coverPath, coverFile);
       if (coverError) throw coverError;
       const { data: coverUrlData } = supabase.storage
-        .from('group1-posts').getPublicUrl(coverPath);
+        .from('group5-posts').getPublicUrl(coverPath);
       coverImageURL = coverUrlData.publicUrl;
     }
 
@@ -1637,7 +1637,7 @@ async function handlePostSubmit() {
 
     // ── CREATE ──
     postRecord.user_id  = currentUser.id;
-    postRecord.group_id = 'group1';
+    postRecord.group_id = 'group5';
 
     const created = await savePost(postRecord);
 
@@ -1648,7 +1648,7 @@ async function handlePostSubmit() {
       const b_post_id = a < b ? b : a;
       const { error: linkErr } = await supabase
         .from('post_links')
-        .insert([{ group_id: 'group1', a_post_id, b_post_id, created_by: currentUser.id }]);
+        .insert([{ group_id: 'group5', a_post_id, b_post_id, created_by: currentUser.id }]);
       if (linkErr) console.error('Failed to create link:', linkErr);
     }
 
@@ -1684,10 +1684,10 @@ async function handleCoverImageSubmit() {
 
   try {
     const filePath = `${currentUser.id}/covers/${Date.now()}-${coverFile.name}`;
-    const { error: uploadError } = await supabase.storage.from('group1-posts').upload(filePath, coverFile);
+    const { error: uploadError } = await supabase.storage.from('group5-posts').upload(filePath, coverFile);
     if (uploadError) throw uploadError;
 
-    const { data: urlData } = supabase.storage.from('group1-posts').getPublicUrl(filePath);
+    const { data: urlData } = supabase.storage.from('group5-posts').getPublicUrl(filePath);
     pendingPost.cover_image_url = urlData.publicUrl;
 
     const isEdit = pendingPost._isEdit;
@@ -1975,7 +1975,7 @@ async function loadPosts() {
     let query = supabase
       .from('posts')
       .select('*')
-      .eq('group_id', 'group1')
+      .eq('group_id', 'group5')
       .order('created_at', { ascending: false });
 
     if (editMode) {

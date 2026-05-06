@@ -259,10 +259,10 @@ async function handleSignup() {
       const ext  = uploadedPFPFile.name.split('.').pop() || 'webp';
       const path = `${userId}.${ext}`;
       const { error: upErr } = await supabase.storage
-        .from('group1-pfps')
+        .from('group5-pfps')
         .upload(path, uploadedPFPFile);
       if (upErr) throw upErr;
-      const { data: urlData } = supabase.storage.from('group1-pfps').getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from('group5-pfps').getPublicUrl(path);
       pfpURL = urlData.publicUrl;
     }
 
