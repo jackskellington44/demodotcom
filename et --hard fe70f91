@@ -1,0 +1,30 @@
+[33mbd19f5c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Restore demo1 site
+[33mb2157f0[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m first
+[33mfe70f91[m Final design
+[33mf2915d3[m Final before style
+[33mddd3a6b[m Upgrade.500
+[33m0387873[m Bugs/styling remains
+[33m2dd1e5d[m Music update wip
+[33m9fe2418[m Unfinished music panel
+[33m6a556db[m Notifs and pfp almost done
+[33mf4ec8c5[m last update before notifications / pfp / music
+[33me8e7d8b[m Huge man huge
+[33m7164083[m Fixing canvas scrolling during placement
+[33m5fdd2cd[m Bigboyfixesotw
+[33ma9d2967[m Upgradeee
+[33m6c49f38[m Megastyle Update.01
+[33m1a31a8c[m Design Upgrade 0.1
+[33mc0c00fc[m Both backgrounds fixed FR
+[33m4b8f713[m Both backgrounds fixed
+[33m1303ac4[m Background image fix
+[33m17d2339[m Multi-page vite build
+[33m0624a4c[m Revert
+[33mb08dc72[m Redirect to index instead of main.html on Pages
+[33m14b7764[m Stop redirecting to main.html; restore view from Supabase session
+[33mf59a24e[m Multi-page vite issue
+[33m53d5f03[m Serve images from public/ for GitHub Pages
+[33m1b2829b[m Fix Vite structure and GitHub Pages deploy
+[33m6c6221c[m Move Pages deploy workflow to .github/workflows
+[33m78e40e9[m Trigger Pages deploy
+[33m709a5b7[m Move JS into src and prep Vite build for Pages
+[33m758e67e[m Configure GitHub Pages deploy
