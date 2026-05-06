@@ -48,7 +48,7 @@ export async function loadTracks() {
   const { data, error } = await supabase
     .from('music_tracks')
     .select('*')
-    .eq('group_id', 'group5')
+    .eq('group_id', 'group1')
     .order('created_at', { ascending: true });
 
   if (error) { console.error('Failed to load tracks:', error); return; }
@@ -258,7 +258,7 @@ async function uploadTrack(file) {
   musicDropZone.querySelector('span').textContent = `uploading ${file.name}…`;
 
   const { error: upErr } = await supabase.storage
-    .from('group5-music')
+    .from('group1-music')
     .upload(filePath, file);
 
   if (upErr) {
@@ -268,13 +268,13 @@ async function uploadTrack(file) {
   }
 
   const { data: urlData } = supabase.storage
-    .from('group5-music')
+    .from('group1-music')
     .getPublicUrl(filePath);
 
   const { error: dbErr } = await supabase
     .from('music_tracks')
     .insert([{
-      group_id: 'group5',
+      group_id: 'group1',
       user_id:  currentUser.id,
       title,
       artist:   '',
